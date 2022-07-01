@@ -9,14 +9,15 @@ from neural_process.neural_process import NeuralProcess
 from pprint import pprint
 from os import path
 
-sys.path.append('C:/Users/KoljaBauer/Documents/Master/Praktikum_Autonome_Lernende_Roboter/metalearning_eval_util/src/metalearning_eval_util')
+#sys.path.append('C:/Users/KoljaBauer/Documents/Master/Praktikum_Autonome_Lernende_Roboter/metalearning_eval_util/src/metalearning_eval_util')
 sys.path.append('C:/Users/KoljaBauer/Documents/Master/Praktikum_Autonome_Lernende_Roboter/BDMC')
 
-from util import log_marginal_likelihood_mc
+#from util import log_marginal_likelihood_mc
 from ais import ais_trajectory
 
+from metalearning_eval_util.util import log_marginal_likelihood_mc
+
 def lmlhd_mc(np_model: NeuralProcess, task, n_samples = 10):
-    np_model.adapt(x=task.x, y=task.y)
 
     y_pred = np.zeros(shape=(n_samples, 1, task.x.shape[0], task.y.shape[1]))
     sigma_pred = np.zeros(shape=(n_samples, 1, task.x.shape[0], task.y.shape[1]))
@@ -30,12 +31,16 @@ def lmlhd_mc(np_model: NeuralProcess, task, n_samples = 10):
     assert y_pred.shape == (n_samples, 1, task.x.shape[0], task.y.shape[1])
     assert sigma_pred.shape == (n_samples, 1, task.x.shape[0], task.y.shape[1])
 
+    print("y_pred: " + str(y_pred))
+    print("sigma_pred: " + str(sigma_pred))
+
     lmlhd = log_marginal_likelihood_mc(y_pred, sigma_pred, y_true)
 
     print(lmlhd)
 
 
 def lmlhd_ais(np_model: NeuralProcess, task):
+    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batches = []
     
@@ -45,7 +50,7 @@ def lmlhd_ais(np_model: NeuralProcess, task):
     chain_length = 500
     forward_schedule = torch.linspace(0, 1, chain_length, device=device)
 
-    ais_trajectory(np_model, loader, forward=True, schedule = forward_schedule, n_sample = 100, initial_step_size = 0.01, device = device)
+    ais_trajectory(np_model, loader, forward=True, schedule = forward_schedule, n_sample = 3, initial_step_size = 0.01, device = device)
 
 
 
@@ -115,20 +120,20 @@ def main():
     config["seed"] = 1234
     # meta data
     config["data_noise_std"] = 0.1
-    config["n_task_meta"] = 64 
-    config["n_datapoints_per_task_meta"] = 32
+    config["n_task_meta"] = 16
+    config["n_datapoints_per_task_meta"] = 16
     config["seed_task_meta"] = 1234
     config["seed_x_meta"] = 2234
     config["seed_noise_meta"] = 3234
     # validation data
-    config["n_task_val"] = 64 
+    config["n_task_val"] = 16 
     config["n_datapoints_per_task_val"] = 32
     config["seed_task_val"] = 1236
     config["seed_x_val"] = 2236
     config["seed_noise_val"] = 3236
     # test data
-    config["n_task_test"] = 64 
-    config["n_datapoints_per_task_test"] = 16
+    config["n_task_test"] = 16 
+    config["n_datapoints_per_task_test"] = 8
     config["seed_task_test"] = 1235
     config["seed_x_test"] = 2235
     config["seed_noise_test"] = 3235
@@ -169,7 +174,7 @@ def main():
     config["self_attention_type"] = None
     config["f_act"] = "relu"
     config["n_hidden_layers"] = 2
-    config["n_hidden_units"] = 64
+    config["n_hidden_units"] = 16
     config["latent_prior_scale"] = 1.0
     config["decoder_output_scale"] = config["data_noise_std"]
 
@@ -207,7 +212,7 @@ def main():
         batch_size=config["batch_size"],
         n_samples=config["n_samples"],
     )
-    pprint(model._config)
+    #pprint(model._config)
 
     # train the model
     n_task_plot = 4
@@ -219,21 +224,23 @@ def main():
         squeeze=False,
         figsize=(5 * n_task_plot, 5),
     )
-    callback = lambda np_model: plot(
+    callback = lambda n_meta_tasks_seen, np_model, metrics: plot(
         np_model=np_model,
         n_task_max=n_task_plot,
         benchmark=benchmark_meta,
         fig=fig,
         axes=axes,
     )
+
+    # callback switched to None for much faster meta-training during debugging
     model.meta_train(
         benchmark_meta=benchmark_meta,
         benchmark_val=benchmark_val,
         n_tasks_train=config["n_tasks_train"],
         validation_interval=config["validation_interval"],
-        callback=callback,
+        callback=None,
     )
-
+    '''
     # test the model
     x_test, y_test = collate_benchmark(benchmark=benchmark_test)
     model.adapt(x=x_test, y=y_test)
@@ -253,9 +260,10 @@ def main():
         axes=axes,
     )
     plt.show()
-
+    '''
     task = benchmark_test.get_task_by_index(0)
-    #lmlhd_mc(model, task, n_samples = 10)
+    model.adapt(x=task.x, y=task.y)
+    lmlhd_mc(model, task, n_samples = 10000)
     lmlhd_ais(model, task)
 
 
