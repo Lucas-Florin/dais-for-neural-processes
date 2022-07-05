@@ -13,8 +13,9 @@ import logging
 
 @torch.no_grad()
 def ais_trajectory(
-    model,
-    loader,
+    proposal_log_prob_fn,
+    target_log_prob_fn,
+    initial_state,
     forward: bool,
     schedule: Union[torch.Tensor, List],
     n_sample: Optional[int] = 100,
@@ -44,25 +45,32 @@ def ais_trajectory(
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
 
-    def log_f_i(z, batch, batch_labels, t, log_likelihood_fn=utils.log_normal):
+    def log_f_i(z, t):
         """Unnormalized density for intermediate distribution `f_i`:
             f_i = p(z)^(1-t) p(x,z)^(t) = p(z) p(x|z)^t
         =>  log f_i = log p(z) + t * log p(x|z)
         """
-        #zeros = torch.zeros_like(z)
-        mu_z, var_z =  model.aggregator.last_agg_state
+        #mu_z, var_z =  model.aggregator.last_agg_state
 
-        log_prior = utils.log_normal(z, mu_z, torch.log(var_z))
+        #log_prior = utils.log_normal(z, mu_z, torch.log(var_z))
+
+
+
+        
         # z modified to have shape 1 x 1 x B x dim_z
         reshaped_z = torch.unsqueeze(torch.unsqueeze(z, dim=0), dim=0)
-        #logger.warning("shape of reshaped z: " + str(reshaped_z.size()))
+        
+        logger.warning("shape of reshaped z: " + str(reshaped_z.size()))
         assert reshaped_z.type() == "torch.FloatTensor"
+        '''
         reshaped_batch = torch.unsqueeze(batch, dim=0).float()
         #print("shape of reshaped batch: " + str(reshaped_batch.type()))
         #logger.warning("shape of reshaped batch: " + str(reshaped_batch.size()))
         assert reshaped_batch.type() == "torch.FloatTensor"
         mu, std = model.decoder.decode(reshaped_batch, reshaped_z)
         log_var = torch.log(std) * 0.5
+
+        
 
         #print("shape of batch_labels: ", batch_labels.size(), "shape of mu: ", mu.size(), "shape of log_var: ", log_var.size())
         #logger.warning("shape of batch_labels: " + str(batch_labels.size()) + "shape of mu: " + str(mu.size()) + "shape of log_var: " + str(log_var.size()))
@@ -76,87 +84,90 @@ def ais_trajectory(
 
         log_var = log_var.squeeze(dim=0)
         log_var = log_var.squeeze(dim=0)
-
+    	
         if(t == 1):
             print("mu: " + str(mu))
             print("log_var: " + str(log_var))
-
+        
         #logger.warning("shape of squeezed batch_labels: " + str(batch_labels.size()) + "shape of squeezed mu: " + str(mu.size()) + "shape of squeezed log_var: " + str(log_var.size()))
 
         log_likelihood = log_likelihood_fn(batch_labels, mu, log_var).squeeze()   
         #logger.warning("shape of log_likelihood: " + str(log_likelihood.size()))
-        return log_prior + log_likelihood.mul_(t)
+        '''
+        proposal = proposal_log_prob_fn(reshaped_z).mul_(1 - t)
+        target = target_log_prob_fn(reshaped_z).mul_(t)
+        logger.warning("shape of proposal: " + str(proposal.size()))
+        logger.warning("shape of target: " + str(target.size()))
+        return proposal + target
 
-    logws = []
-    for i, (batch, batch_labels) in enumerate(loader):
-        #logger.warning("shape of batch: " + str(batch.size()))
-        #B = batch.size(0) * n_sample
-        B = 1 * n_sample
-        batch = batch.to(device)
 
-        print("batch labels: " + str(batch_labels))
+    B = 1 * n_sample
+    #batch = batch.to(device)
 
-        batch_labels = batch_labels[None, None, None, :, :]
-        batch_labels = batch_labels.expand(1, 1, n_sample, batch.size(0), batch.size(1))
-        #batch = utils.safe_repeat(batch, n_sample)
-        #batch_labels = utils.safe_repeat(batch_labels, n_sample)
+    #print("batch labels: " + str(batch_labels))
 
-        epsilon = torch.full(size=(B,), device=device, fill_value=initial_step_size)
-        accept_hist = torch.zeros(size=(B,), device=device)
-        logw = torch.zeros(size=(B,), device=device)
+    #batch_labels = batch_labels[None, None, None, :, :]
+    #batch_labels = batch_labels.expand(1, 1, n_sample, batch.size(0), batch.size(1))
+    #batch = utils.safe_repeat(batch, n_sample)
+    #batch_labels = utils.safe_repeat(batch_labels, n_sample)
 
-        # initial sample of z
-        if forward:
-            # This probably needs to change for NPs, because we want to start with samples of the prior conditioned on the context set
-            #current_z = torch.randn(size=(B, model.settings["d_z"]), device=device, dtype=torch.float32)
-            mu_z, var_z =  model.aggregator.last_agg_state
-            logger.warning("shape of mu_z: " + str(mu_z.size()) + ", shape of var_z: " + str(var_z.size()))
-            current_z = torch.normal(mu_z, torch.sqrt(var_z))
-        else:
-            current_z = utils.safe_repeat(post_z, n_sample).to(device)
+    epsilon = torch.full(size=(B,), device=device, fill_value=initial_step_size)
+    accept_hist = torch.zeros(size=(B,), device=device)
+    logw = torch.zeros(size=(B,), device=device)
 
-        for j, (t0, t1) in tqdm(enumerate(zip(schedule[:-1], schedule[1:]), 1)):
-            # update log importance weight
-            log_int_1 = log_f_i(current_z, batch, batch_labels, t0)
-            log_int_2 = log_f_i(current_z, batch, batch_labels, t1)
-            logw += log_int_2 - log_int_1
+    # initial sample of z
+    if forward:
+        # This probably needs to change for NPs, because we want to start with samples of the prior conditioned on the context set
+        #current_z = torch.randn(size=(B, model.settings["d_z"]), device=device, dtype=torch.float32)
+        mu_z, var_z =  initial_state
+        # logger.warning("shape of mu_z: " + str(mu_z.size()) + ", shape of var_z: " + str(var_z.size()))
+        logger.warning("Executing this file")
+        current_z = torch.normal(mu_z, torch.sqrt(var_z))
+    
+    else: # not implemented for now
+        current_z = utils.safe_repeat(post_z, n_sample).to(device)
 
-            def U(z):
-                return -log_f_i(z, batch, batch_labels, t1)
+    for j, (t0, t1) in tqdm(enumerate(zip(schedule[:-1], schedule[1:]), 1)):
+        # update log importance weight
+        log_int_1 = log_f_i(current_z, t0)
+        log_int_2 = log_f_i(current_z, t1)
+        logw += log_int_2 - log_int_1
 
-            @torch.enable_grad()
-            def grad_U(z):
-                z = z.clone().requires_grad_(True)
-                grad, = torch.autograd.grad(U(z).sum(), z)
-                max_ = B * model.settings["d_z"] * 100.
-                grad = torch.clamp(grad, -max_, max_)
-                return grad
+        def U(z):
+            return -log_f_i(z, t1)
 
-            def normalized_kinetic(v):
-                zeros = torch.zeros_like(v)
-                return -utils.log_normal(v, zeros, zeros)
+        @torch.enable_grad()
+        def grad_U(z):
+            z = z.clone().requires_grad_(True)
+            grad, = torch.autograd.grad(U(z).sum(), z)
+            max_ = B * initial_state[0].size()[-1] * 100. # last dimension of mu_z
+            grad = torch.clamp(grad, -max_, max_)
+            return grad
 
-            # resample velocity
-            current_v = torch.randn_like(current_z)
-            z, v = hmc.hmc_trajectory(current_z, current_v, grad_U, epsilon)
-            current_z, epsilon, accept_hist = hmc.accept_reject(
-                current_z,
-                current_v,
-                z,
-                v,
-                epsilon,
-                accept_hist,
-                j,
-                U=U,
-                K=normalized_kinetic,
-            )
-        
-        print(logw)
-        logw = utils.logmeanexp(logw.view(n_sample, -1).transpose(0, 1))
-        if not forward:
-            logw = -logw
-        logws.append(logw)
-        
-        print('Last batch stats %.4f' % (logw.mean().cpu().item()))
+        def normalized_kinetic(v):
+            zeros = torch.zeros_like(v)
+            return -utils.log_normal(v, zeros, zeros)
 
-    return logws
+        # resample velocity
+        current_v = torch.randn_like(current_z)
+        z, v = hmc.hmc_trajectory(current_z, current_v, grad_U, epsilon)
+        current_z, epsilon, accept_hist = hmc.accept_reject(
+            current_z,
+            current_v,
+            z,
+            v,
+            epsilon,
+            accept_hist,
+            j,
+            U=U,
+            K=normalized_kinetic,
+        )
+    
+    print(logw)
+    logw = utils.logmeanexp(logw.view(n_sample, -1).transpose(0, 1))
+    if not forward:
+        logw = -logw
+    
+    print('Last batch stats %.4f' % (logw.mean().cpu().item()))
+
+    return logw

@@ -1,3 +1,4 @@
+from ast import Pass
 import os
 import torch
 import numpy as np
@@ -9,13 +10,20 @@ from neural_process.neural_process import NeuralProcess
 from pprint import pprint
 from os import path
 
+import logging
+
 #sys.path.append('C:/Users/KoljaBauer/Documents/Master/Praktikum_Autonome_Lernende_Roboter/metalearning_eval_util/src/metalearning_eval_util')
 sys.path.append('C:/Users/KoljaBauer/Documents/Master/Praktikum_Autonome_Lernende_Roboter/BDMC')
 
 #from util import log_marginal_likelihood_mc
 from ais import ais_trajectory
 
+import utils
+
 from metalearning_eval_util.util import log_marginal_likelihood_mc
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 def lmlhd_mc(np_model: NeuralProcess, task, n_samples = 10):
 
@@ -39,7 +47,21 @@ def lmlhd_mc(np_model: NeuralProcess, task, n_samples = 10):
     print(lmlhd)
 
 
-def lmlhd_ais(np_model: NeuralProcess, task):
+def lmlhd_ais(np_model: NeuralProcess, task, n_samples = 3):
+    
+
+    log_prior = construct_log_prior(np_model)
+
+    task_x_torch = torch.from_numpy(task.x).float()
+    task_y_torch = torch.from_numpy(task.y).float()
+
+    #reshaping of task.x to (n_tsk, n_tst, d_x)
+    logger.warning("shape of task.x: " + str(task_x_torch.size()))
+
+    task_x_torch = torch.unsqueeze(task_x_torch, dim=0)
+    task_y_torch = torch.unsqueeze(task_y_torch, dim=0)
+
+    log_posterior = construct_log_posterior(np_model, log_prior, task_x_torch, task_y_torch)
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batches = []
@@ -50,7 +72,12 @@ def lmlhd_ais(np_model: NeuralProcess, task):
     chain_length = 500
     forward_schedule = torch.linspace(0, 1, chain_length, device=device)
 
-    ais_trajectory(np_model, loader, forward=True, schedule = forward_schedule, n_sample = 3, initial_step_size = 0.01, device = device)
+    # initial state should have shape n_samples x d_z. Also for multiple tasks?
+    mu_z, var_z = np_model.aggregator.last_agg_state
+    # TODO: how to sample from multidimensional distribution multiple times?
+    initial_state = torch.normal(mu_z, var_z, size=(n_samples))
+
+    ais_trajectory(log_prior, log_posterior, initial_state, forward=True, schedule = forward_schedule, initial_step_size = 0.01, device = device)
 
 
 
@@ -102,6 +129,18 @@ def plot(
     plt.show(block=False)
     plt.pause(0.001)
 
+def construct_log_prior(model):
+    mu_z, var_z = model.aggregator.last_agg_state
+    return lambda z : utils.log_normal(z, mu_z, torch.log(var_z))
+
+def construct_log_posterior(model, log_prior, test_set_x, test_set_y):
+    return lambda z: log_prior(z) + log_likelihood_fn(model, test_set_x, test_set_y, z)
+
+def log_likelihood_fn(model, test_set_x, test_set_y, z):
+    assert test_set_x.ndim == 3  # (n_tsk, n_tst, d_x)
+    assert z.ndim == 4  # (n_tsk, n_ls, n_marg, d_z)
+    mu_y, var_y = model.decoder.decode(test_set_x, z)
+    return utils.log_normal(test_set_y, mu_y, torch.log(var_y))
 
 def main():
     # logpath
@@ -120,8 +159,8 @@ def main():
     config["seed"] = 1234
     # meta data
     config["data_noise_std"] = 0.1
-    config["n_task_meta"] = 16
-    config["n_datapoints_per_task_meta"] = 16
+    config["n_task_meta"] = 256
+    config["n_datapoints_per_task_meta"] = 64
     config["seed_task_meta"] = 1234
     config["seed_x_meta"] = 2234
     config["seed_noise_meta"] = 3234
@@ -132,8 +171,8 @@ def main():
     config["seed_x_val"] = 2236
     config["seed_noise_val"] = 3236
     # test data
-    config["n_task_test"] = 16 
-    config["n_datapoints_per_task_test"] = 8
+    config["n_task_test"] = 256 
+    config["n_datapoints_per_task_test"] = 4
     config["seed_task_test"] = 1235
     config["seed_x_test"] = 2235
     config["seed_noise_test"] = 3235
@@ -170,7 +209,7 @@ def main():
     config["d_z"] = 16
     config["aggregator_type"] = "BA"
     config["loss_type"] = "MC"
-    config["input_mlp_std_y"] = "xz"
+    config["input_mlp_std_y"] = ""
     config["self_attention_type"] = None
     config["f_act"] = "relu"
     config["n_hidden_layers"] = 2
@@ -224,6 +263,11 @@ def main():
         squeeze=False,
         figsize=(5 * n_task_plot, 5),
     )
+    # Replace callback
+    # metrics contain loss_meta
+    # callback = lambda n_meta_tasks_seen, np_model, metrics: 
+
+
     callback = lambda n_meta_tasks_seen, np_model, metrics: plot(
         np_model=np_model,
         n_task_max=n_task_plot,
@@ -263,7 +307,10 @@ def main():
     '''
     task = benchmark_test.get_task_by_index(0)
     model.adapt(x=task.x, y=task.y)
-    lmlhd_mc(model, task, n_samples = 10000)
+    #lmlhd_mc(model, task, n_samples = 100)
+
+    
+
     lmlhd_ais(model, task)
 
 
