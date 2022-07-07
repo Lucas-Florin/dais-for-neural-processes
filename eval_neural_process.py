@@ -13,7 +13,7 @@ from os import path
 import logging
 
 #sys.path.append('C:/Users/KoljaBauer/Documents/Master/Praktikum_Autonome_Lernende_Roboter/metalearning_eval_util/src/metalearning_eval_util')
-sys.path.append('C:/Users/KoljaBauer/Documents/Master/Praktikum_Autonome_Lernende_Roboter/BDMC')
+#sys.path.append('C:/Users/KoljaBauer/Documents/Master/Praktikum_Autonome_Lernende_Roboter/BDMC')
 
 #from util import log_marginal_likelihood_mc
 from ais import ais_trajectory
@@ -73,9 +73,19 @@ def lmlhd_ais(np_model: NeuralProcess, task, n_samples = 3):
     forward_schedule = torch.linspace(0, 1, chain_length, device=device)
 
     # initial state should have shape n_samples x d_z. Also for multiple tasks?
+    # last_agg_state has dimension n_task x n_ls x d_z
     mu_z, var_z = np_model.aggregator.last_agg_state
+    #logger.warning("shape of mu_z after calling last_agg_state: " + str(mu_z.size()))
+    # This can only handle a single task
+    mu_z = torch.squeeze(torch.squeeze(mu_z, dim=0), dim=0)
+    mu_z = mu_z.repeat(n_samples, 1)
+    var_z = torch.squeeze(torch.squeeze(var_z, dim=0), dim=0)
+    var_z = var_z.repeat(n_samples, 1)
     # TODO: how to sample from multidimensional distribution multiple times?
-    initial_state = torch.normal(mu_z, var_z, size=(n_samples))
+    initial_state = torch.normal(mu_z, var_z)
+
+    logger.warning("shape of initial state: " + str(initial_state.size()))
+    #logger.warning("shape of mu_z: " + str(mu_z.size()))
 
     ais_trajectory(log_prior, log_posterior, initial_state, forward=True, schedule = forward_schedule, initial_step_size = 0.01, device = device)
 
@@ -131,7 +141,8 @@ def plot(
 
 def construct_log_prior(model):
     mu_z, var_z = model.aggregator.last_agg_state
-    return lambda z : utils.log_normal(z, mu_z, torch.log(var_z))
+
+    return lambda z : utils.log_normal(torch.squeeze(torch.squeeze(z, dim=0), dim=0), mu_z.repeat(z.size()[0], 1), torch.log(var_z.repeat(z.size()[0], 1)))
 
 def construct_log_posterior(model, log_prior, test_set_x, test_set_y):
     return lambda z: log_prior(z) + log_likelihood_fn(model, test_set_x, test_set_y, z)
@@ -140,7 +151,11 @@ def log_likelihood_fn(model, test_set_x, test_set_y, z):
     assert test_set_x.ndim == 3  # (n_tsk, n_tst, d_x)
     assert z.ndim == 4  # (n_tsk, n_ls, n_marg, d_z)
     mu_y, var_y = model.decoder.decode(test_set_x, z)
-    return utils.log_normal(test_set_y, mu_y, torch.log(var_y))
+    #logger.warning("shape of mu_y: " + str(mu_y.size()) + ", shape of var_y: " + str(var_y.size()))
+    mu_y = torch.squeeze(torch.squeeze(mu_y, dim=0), dim=0)
+    var_y = torch.squeeze(torch.squeeze(var_y, dim=0), dim=0)
+    #logger.warning("After squeezing: shape of mu_y: " + str(mu_y.size()) + ", shape of var_y: " + str(var_y.size()))
+    return torch.sum(utils.log_normal(test_set_y, mu_y, torch.log(var_y)), dim=1) # sum over d_y
 
 def main():
     # logpath

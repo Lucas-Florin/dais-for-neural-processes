@@ -18,7 +18,6 @@ def ais_trajectory(
     initial_state,
     forward: bool,
     schedule: Union[torch.Tensor, List],
-    n_sample: Optional[int] = 100,
     initial_step_size: Optional[int] = 0.01,
     device: Optional[torch.device] = None,
 ):
@@ -27,12 +26,11 @@ def ais_trajectory(
     Could be used for *both* forward and reverse chain in BDMC.
 
     Args:
-      model (vae.VAE): VAE model
-      loader (iterator): iterator that returns pairs, with first component
-        being `x`, second would be `z` or label (will not be used)
+      proposal_log_prob_fn: Log-probability function initial distribution of AIS
+      target_log_prob_fn: Log-probability function of target distribution of AIS
+      initial_state: Initial sample from the initial distribution, shape is n_samples x d_z
       forward: indicate forward/backward chain
       schedule: temperature schedule, i.e. `p(z)p(x|z)^t`
-      n_sample: number of importance samples
       device: device to run all computation on
       initial_step_size: initial step size for leap-frog integration;
         the actual step size is adapted online based on accept-reject ratios
@@ -44,6 +42,8 @@ def ais_trajectory(
 
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
+
+    n_samples = initial_state.size()[0]
 
     def log_f_i(z, t):
         """Unnormalized density for intermediate distribution `f_i`:
@@ -60,7 +60,7 @@ def ais_trajectory(
         # z modified to have shape 1 x 1 x B x dim_z
         reshaped_z = torch.unsqueeze(torch.unsqueeze(z, dim=0), dim=0)
         
-        logger.warning("shape of reshaped z: " + str(reshaped_z.size()))
+        #logger.warning("shape of reshaped z: " + str(reshaped_z.size()))
         assert reshaped_z.type() == "torch.FloatTensor"
         '''
         reshaped_batch = torch.unsqueeze(batch, dim=0).float()
@@ -96,20 +96,20 @@ def ais_trajectory(
         '''
         proposal = proposal_log_prob_fn(reshaped_z).mul_(1 - t)
         target = target_log_prob_fn(reshaped_z).mul_(t)
-        logger.warning("shape of proposal: " + str(proposal.size()))
-        logger.warning("shape of target: " + str(target.size()))
+        #logger.warning("shape of proposal: " + str(proposal.size()))
+        #logger.warning("shape of target: " + str(target.size()))
         return proposal + target
 
 
-    B = 1 * n_sample
+    B = 1 * n_samples
     #batch = batch.to(device)
 
     #print("batch labels: " + str(batch_labels))
 
     #batch_labels = batch_labels[None, None, None, :, :]
-    #batch_labels = batch_labels.expand(1, 1, n_sample, batch.size(0), batch.size(1))
-    #batch = utils.safe_repeat(batch, n_sample)
-    #batch_labels = utils.safe_repeat(batch_labels, n_sample)
+    #batch_labels = batch_labels.expand(1, 1, n_samples, batch.size(0), batch.size(1))
+    #batch = utils.safe_repeat(batch, n_samples)
+    #batch_labels = utils.safe_repeat(batch_labels, n_samples)
 
     epsilon = torch.full(size=(B,), device=device, fill_value=initial_step_size)
     accept_hist = torch.zeros(size=(B,), device=device)
@@ -119,13 +119,14 @@ def ais_trajectory(
     if forward:
         # This probably needs to change for NPs, because we want to start with samples of the prior conditioned on the context set
         #current_z = torch.randn(size=(B, model.settings["d_z"]), device=device, dtype=torch.float32)
-        mu_z, var_z =  initial_state
+        #mu_z, var_z =  initial_state
         # logger.warning("shape of mu_z: " + str(mu_z.size()) + ", shape of var_z: " + str(var_z.size()))
         logger.warning("Executing this file")
-        current_z = torch.normal(mu_z, torch.sqrt(var_z))
+        #current_z = torch.normal(mu_z, torch.sqrt(var_z))
+        current_z = initial_state
     
     else: # not implemented for now
-        current_z = utils.safe_repeat(post_z, n_sample).to(device)
+        current_z = utils.safe_repeat(post_z, n_samples).to(device)
 
     for j, (t0, t1) in tqdm(enumerate(zip(schedule[:-1], schedule[1:]), 1)):
         # update log importance weight
@@ -164,7 +165,7 @@ def ais_trajectory(
         )
     
     print(logw)
-    logw = utils.logmeanexp(logw.view(n_sample, -1).transpose(0, 1))
+    logw = utils.logmeanexp(logw.view(n_samples, -1).transpose(0, 1))
     if not forward:
         logw = -logw
     
