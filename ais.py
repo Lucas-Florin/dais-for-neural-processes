@@ -58,10 +58,10 @@ def ais_trajectory(
 
         
         # z modified to have shape 1 x 1 x B x dim_z
-        reshaped_z = torch.unsqueeze(torch.unsqueeze(z, dim=0), dim=0)
+        #reshaped_z = torch.unsqueeze(torch.unsqueeze(z, dim=0), dim=0)
         
         #logger.warning("shape of reshaped z: " + str(reshaped_z.size()))
-        assert reshaped_z.type() == "torch.FloatTensor"
+        #assert reshaped_z.type() == "torch.FloatTensor"
         '''
         reshaped_batch = torch.unsqueeze(batch, dim=0).float()
         #print("shape of reshaped batch: " + str(reshaped_batch.type()))
@@ -94,8 +94,8 @@ def ais_trajectory(
         log_likelihood = log_likelihood_fn(batch_labels, mu, log_var).squeeze()   
         #logger.warning("shape of log_likelihood: " + str(log_likelihood.size()))
         '''
-        proposal = proposal_log_prob_fn(reshaped_z).mul_(1 - t)
-        target = target_log_prob_fn(reshaped_z).mul_(t)
+        proposal = proposal_log_prob_fn(z).mul_(1 - t)
+        target = target_log_prob_fn(z).mul_(t)
         #logger.warning("shape of proposal: " + str(proposal.size()))
         #logger.warning("shape of target: " + str(target.size()))
         return proposal + target
@@ -121,7 +121,7 @@ def ais_trajectory(
         #current_z = torch.randn(size=(B, model.settings["d_z"]), device=device, dtype=torch.float32)
         #mu_z, var_z =  initial_state
         # logger.warning("shape of mu_z: " + str(mu_z.size()) + ", shape of var_z: " + str(var_z.size()))
-        logger.warning("Executing this file")
+
         #current_z = torch.normal(mu_z, torch.sqrt(var_z))
         current_z = initial_state
     
