@@ -21,10 +21,11 @@ from ais import ais_trajectory
 
 import utils
 
-from metalearning_eval_util.util import log_marginal_likelihood_mc
+from eval_util.util import log_marginal_likelihood_mc
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+#3
+# logger.setLevel(logging.DEBUG)
 
 def lmlhd_mc(np_model: NeuralProcess, task, n_samples = 10):
 
@@ -302,8 +303,8 @@ def main():
         n_samples=config["n_samples"],
     )
 
-    #train(model, benchmark_meta, benchmark_val, benchmark_test, config)
-    model.load_model(config["n_tasks_train"])
+    train(model, benchmark_meta, benchmark_val, benchmark_test, config)
+    #model.load_model(config["n_tasks_train"])
 
     
     # test the model
