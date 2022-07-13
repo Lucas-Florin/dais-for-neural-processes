@@ -3,6 +3,8 @@ import numpy as np
 from torch.distributions.multivariate_normal import MultivariateNormal
 from torch.distributions.normal import Normal
 
+from metalearning_eval_util.util import log_marginal_likelihood_mc
+
 import torch
 import random
 
@@ -64,6 +66,20 @@ class BayesianLinearRegression():
 
         return mu_y, cov_y
 
+    def predict_param(self, x, z):
+        ones = torch.ones(x.size()[0])
+        train_features = torch.stack([ones, x], dim=1)
+        print("shape of train features: " + str(train_features.size()))
+        print("shape of z: " + str(z.size()))
+
+        mu_y = torch.matmul(train_features, z.T)
+        cov_y = torch.tensor(self.noise_var).expand(mu_y.size())
+        print("shape of mu_y: " + str(mu_y.size()))
+        print("shape of cov_y: " + str(cov_y.size()))
+
+        return mu_y, cov_y
+
+
     def generate_dataset(n_datapoints, slope, intercept, noise_std_dev, seed = 42):
         np.random.seed(seed)
         lower_bound = -1.5
@@ -94,6 +110,34 @@ class BayesianLinearRegression():
         log_lhds = predictive.log_prob(test_labels)
         return torch.sum(log_lhds, dim=-1)
 
+    def mc_estimator(self, dataset, n_samples=3):
+        train_points, noisy_labels, true_labels = dataset
+        train_points = torch.from_numpy(train_points[:10]).float()
+        noisy_labels = torch.from_numpy(noisy_labels[:10]).float()
+        true_labels = torch.from_numpy(true_labels[:10]).float()
+
+        print("shape of posterior mean: " + str(self.posterior_mean.size()) + "shape of posterior cov: " + str(self.posterior_cov.size()))
+        posterior = MultivariateNormal(self.posterior_mean, torch.sqrt(self.posterior_cov))
+        pos_samples = posterior.sample((n_samples,))
+        print("shape of pos_samples: " + str(pos_samples.size()))
+
+        mu_y, cov_y = self.predict_param(train_points, pos_samples)
+
+        mu_y = torch.unsqueeze(torch.unsqueeze(mu_y.T, dim=1), dim=-1)
+        cov_y = torch.unsqueeze(torch.unsqueeze(cov_y.T, dim=1), dim=-1)
+        true_labels = torch.unsqueeze(torch.unsqueeze(true_labels, dim=0), dim=-1)
+        print("shape of mu_y: " + str(mu_y.size()) + ", shape of cov_y: " + str(cov_y.size()))
+        print("shape of true labels: " + str(true_labels.size()))
+
+        print("mu_y: " + str(mu_y))
+        print("cov_y: " + str(cov_y))
+        print("true_labels: " + str(true_labels))
+
+        lm_lhd_mc = log_marginal_likelihood_mc(mu_y.numpy(), cov_y.numpy(), true_labels.numpy())
+
+        print("MC estimate of Log marginal likelihood: " + str(lm_lhd_mc))
+
+
 
 if __name__ == "__main__":
     blr = BayesianLinearRegression(feature_dim = 2)
@@ -111,11 +155,15 @@ if __name__ == "__main__":
 
     n_samples = 100
 
+    blr.mc_estimator(dataset)
+    
+    '''
     initial_state = (blr.prior.sample((n_samples,))).float()
+    # Check shape of initial_state
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    chain_length = 10000
+    chain_length = 1000
 
     forward_schedule = torch.linspace(0, 1, chain_length, device=device)
     
@@ -125,5 +173,6 @@ if __name__ == "__main__":
     initial_state,
     forward=True,
     schedule=forward_schedule)
+    '''
     
 

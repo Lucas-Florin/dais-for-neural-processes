@@ -338,7 +338,7 @@ def main():
 
     
 
-    lmlhd_ais(model, task, n_samples=100, chain_length = 100)
+    lmlhd_ais(model, task, n_samples=30, chain_length = 500)
 
 
 if __name__ == "__main__":
