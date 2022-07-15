@@ -21,7 +21,7 @@ from ais import ais_trajectory
 
 import utils
 
-from eval_util.util import log_marginal_likelihood_mc
+from metalearning_eval_util.util import log_marginal_likelihood_mc
 
 logger = logging.getLogger(__name__)
 #3
@@ -50,7 +50,7 @@ def lmlhd_mc(np_model: NeuralProcess, task, n_samples = 10):
 
     lmlhd = log_marginal_likelihood_mc(y_pred, sigma_pred, y_true)
 
-    print(lmlhd)
+    return lmlhd
 
 
 def lmlhd_ais(np_model: NeuralProcess, task, n_samples = 10, chain_length=500):
@@ -87,7 +87,7 @@ def lmlhd_ais(np_model: NeuralProcess, task, n_samples = 10, chain_length=500):
 
     logger.warning("shape of initial state: " + str(initial_state.size()))
 
-    ais_trajectory(log_prior, log_posterior, initial_state, forward=True, schedule = forward_schedule, initial_step_size = 0.01, device = device)
+    return ais_trajectory(log_prior, log_posterior, initial_state, forward=True, schedule = forward_schedule, initial_step_size = 0.01, device = device)
 
 
 
@@ -107,6 +107,7 @@ def plot(
     np_model: NeuralProcess,
     benchmark: MetaLearningBenchmark,
     n_task_max: int,
+    n_context_points: int,
     fig,
     axes,
 ):
@@ -122,21 +123,30 @@ def plot(
     x_plt = np.linspace(x_plt_min, x_plt_max, 128)
     x_plt = np.reshape(x_plt, (-1, 1))
 
-    # plot predictions
-    for l in range(n_task_plot):
-        task = benchmark.get_task_by_index(l)
-        np_model.adapt(x=task.x, y=task.y)
-        ax = axes[0, l]
-        ax.clear()
-        ax.scatter(task.x, task.y, marker="x", s=50, color="r", alpha=1.0, zorder=3)
-        
-        for s in range(n_samples):
-            mu, _ = np_model.predict(x=x_plt)
-            ax.plot(x_plt, mu, color="b", alpha=0.3, label="posterior", zorder=2)
+    
 
-        
-        ax.grid(zorder=1)
-        ax.set_title(f"Predictions (Task {l:d})")
+    # plot predictions
+    for i in range(n_context_points + 1):
+        for l in range(n_task_plot):
+            task = benchmark.get_task_by_index(l)
+
+            np_model.adapt(x=task.x[:i], y=task.y[:i])
+            ax = axes[i, l]
+            ax.clear()
+            ax.scatter(task.x[:i], task.y[:i], marker="x", s=50, color="r", alpha=1.0, zorder=3)
+            ax.scatter(task.x[i:], task.y[i:], marker="x", s=50, color="g", alpha=1.0, zorder=3)
+            
+            for s in range(n_samples):
+                mu, _ = np_model.predict(x=x_plt)
+                ax.plot(x_plt, mu, color="b", alpha=0.3, label="posterior", zorder=2)
+
+
+            lmlhd_mc_estimate = lmlhd_mc(np_model, task, n_samples = 100000)
+            lmlhd_ais_estimate = lmlhd_ais(np_model, task, n_samples = 3000, chain_length=500)
+
+
+            ax.grid(zorder=1)
+            ax.set_title(f"Predictions (Task {l:d}), MC: " + str(round(lmlhd_mc_estimate[0], 3)) + ", AIS: " + str(round(lmlhd_ais_estimate.numpy()[0], 3)))
 
     fig.tight_layout()
     plt.show(block=False)
@@ -303,8 +313,8 @@ def main():
         n_samples=config["n_samples"],
     )
 
-    train(model, benchmark_meta, benchmark_val, benchmark_test, config)
-    #model.load_model(config["n_tasks_train"])
+    #train(model, benchmark_meta, benchmark_val, benchmark_test, config)
+    model.load_model(config["n_tasks_train"])
 
     
     # test the model
@@ -315,31 +325,35 @@ def main():
     n_task_plot = 4
 
     fig, axes = plt.subplots(
-        nrows=1,
+        nrows=config["n_datapoints_per_task_test"] + 1,
         ncols=n_task_plot,
         sharex=True,
         sharey=True,
         squeeze=False,
         figsize=(5 * n_task_plot, 5),
     )
+
+    fig.subplots_adjust(wspace=1, hspace=-100)
+
     plot(
         np_model=model,
         n_task_max=n_task_plot,
         benchmark=benchmark_test,
+        n_context_points = config["n_datapoints_per_task_test"],
         fig=fig,
         axes=axes,
     )
     plt.show()
 
-    task = benchmark_test.get_task_by_index(0)
-    model.adapt(x=task.x, y=task.y)
+    #task = benchmark_test.get_task_by_index(0)
+    #model.adapt(x=task.x, y=task.y)
 
-    print("evaluating model on test set of size: " + str(task.x.shape[0]))
-    #lmlhd_mc(model, task, n_samples = 100000)
+    #print("evaluating model on test set of size: " + str(task.x.shape[0]))
+    #lmlhd_mc(model, task, n_samples = 1000)
 
     
 
-    lmlhd_ais(model, task, n_samples=30, chain_length = 500)
+    #lmlhd_ais(model, task, n_samples=100, chain_length = 1000)
 
 
 if __name__ == "__main__":

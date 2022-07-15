@@ -151,7 +151,7 @@ def ais_trajectory(
 
         # resample velocity
         current_v = torch.randn_like(current_z)
-        z, v = hmc.hmc_trajectory(current_z, current_v, grad_U, epsilon)
+        z, v = hmc.hmc_trajectory(current_z, current_v, grad_U, epsilon, L=30)
         current_z, epsilon, accept_hist = hmc.accept_reject(
             current_z,
             current_v,
