@@ -163,9 +163,8 @@ def ais_trajectory(
             U=U,
             K=normalized_kinetic,
         )
-    
-    print(logw)
     logw = utils.logmeanexp(logw.view(n_samples, -1).transpose(0, 1))
+    #logw = torch.logsumexp(logw, dim=-1) - torch.log(torch.tensor(n_samples))
     if not forward:
         logw = -logw
     
