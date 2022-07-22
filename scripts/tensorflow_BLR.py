@@ -32,7 +32,6 @@ class BayesianLinearRegression():
         inverse_mat = tf.linalg.inv(tf.matmul(feature_matrix.T, feature_matrix) + self.noise_var * self.precision * tf.eye(self.feature_dim))
 
         # Compute the posterior distribution
-        
         self.posterior_mean = tf.linalg.matvec(inverse_mat, tf.linalg.matvec(feature_matrix.T, noisy_labels))
         self.posterior_cov = self.noise_var * inverse_mat
         
@@ -81,7 +80,7 @@ class BayesianLinearRegression():
 
         marg_cov = intermediate_result + self.noise_var * tf.eye(intermediate_result.shape[0])
 
-        # What if y is itself multidimensional???
+        # What if y is itself multidimensional?
         marg = tfd.MultivariateNormalTriL(loc=marg_means, scale_tril=tf.linalg.cholesky(marg_cov))
 
         log_marg_lhd = marg.log_prob(test_labels)

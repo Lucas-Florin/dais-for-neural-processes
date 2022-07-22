@@ -15,9 +15,8 @@ import wandb
 from torch.distributions.multivariate_normal import MultivariateNormal
 from torch.distributions.normal import Normal
 
-from ais import ais_trajectory
-
-import utils
+from bayesian_meta_learning.ais import ais_trajectory
+from bayesian_meta_learning import utils
 
 from metalearning_eval_util.util import log_marginal_likelihood_mc
 
@@ -28,8 +27,6 @@ def lmlhd_mc(np_model: NeuralProcess, task, n_samples = 10):
     y_pred = np.zeros(shape=(n_samples, 1, task.x.shape[0], task.y.shape[1]))
     sigma_pred = np.zeros(shape=(n_samples, 1, task.x.shape[0], task.y.shape[1]))
     y_true = np.expand_dims(task.y, axis=0) # shape needs to be n_tasks x n_points x d_y
-
-    #logger.warning("shape of y_pred: " + str(y_pred.shape) + ", shape of sigma_pred: " + str(sigma_pred.shape) + ", shape of y_true: " + str(y_true.shape))
 
     for s in range(n_samples):
             mu, sigma = np_model.predict(x=task.x)
@@ -57,7 +54,6 @@ def lmlhd_ais(np_model: NeuralProcess, task, n_samples = 10, chain_length=500):
     task_y_torch = torch.from_numpy(task.y).float()
 
     #reshaping of task.x to (n_tsk, n_tst, d_x)
-    #logger.warning("shape of task.x: " + str(task_x_torch.size()))
 
     task_x_torch = torch.unsqueeze(task_x_torch, dim=0)
     task_y_torch = torch.unsqueeze(task_y_torch, dim=0)
@@ -95,7 +91,6 @@ def collate_benchmark(benchmark: MetaLearningBenchmark):
 
     return x, y
 
-
 def plot(
     np_model: NeuralProcess,
     benchmark: MetaLearningBenchmark,
@@ -116,8 +111,6 @@ def plot(
     x_plt = np.linspace(x_plt_min, x_plt_max, 128)
     x_plt = np.reshape(x_plt, (-1, 1))
 
-    
-
     # plot predictions
     for i in range(n_context_points + 1):
         for l in range(n_task_plot):
@@ -134,13 +127,11 @@ def plot(
                 mu, _ = np_model.predict(x=x_plt)
                 ax.plot(x_plt, mu, color="b", alpha=0.3, label="posterior", zorder=2)
 
-
             lmlhd_mc_estimate = lmlhd_mc(np_model, task, n_samples = 10000)
             lmlhd_ais_estimate = lmlhd_ais(np_model, task, n_samples = 1000, chain_length=200)
             print("number of context points: " + str(i) + ", task: " + str(l))
             print("MC estimate: " + str(round(lmlhd_mc_estimate[0], 3)))
             print("AIS estimate: " + str(round(lmlhd_ais_estimate.numpy()[0], 3)))
-
 
             ax.grid(zorder=1)
 
@@ -174,18 +165,13 @@ def log_likelihood_fn(model, test_set_x, test_set_y, z):
     assert test_set_x.ndim == 3  # (n_tsk, n_tst, d_x)
     assert z.ndim == 4  # (n_tsk, n_ls, n_marg, d_z)
     mu_y, var_y = model.decoder.decode(test_set_x, z)
-    #logger.warning(str(var_y))
-
-    #logger.warning("shape of mu_y: " + str(mu_y.size()) + ", shape of var_y: " + str(var_y.size()))
     mu_y = torch.squeeze(torch.squeeze(mu_y, dim=0), dim=0)
     var_y = torch.squeeze(torch.squeeze(var_y, dim=0), dim=0)
-    #logger.warning("After squeezing: shape of mu_y: " + str(mu_y.size()) + ", shape of var_y: " + str(var_y.size()))
     result = torch.sum(utils.log_normal(test_set_y, mu_y, torch.log(var_y)), dim=1) # sum over d_y and then sum over data points in data set
-    #logger.warning("likwlihood:" + str(result.size()))
     return result
 
 def train(model, benchmark_meta, benchmark_val, benchmark_test, config):
-        # Log in to your W&B account
+    # Log in to your W&B account
     wandb.login()
 
     wandb.init(
@@ -197,7 +183,6 @@ def train(model, benchmark_meta, benchmark_val, benchmark_test, config):
     )
 
     log_loss = lambda n_meta_tasks_seen, np_model, metrics: wandb.log(metrics) if metrics is not None else None
-    #log_loss = lambda n_meta_tasks_seen, np_model, metrics: logger.warning(metrics)
 
     # callback switched to None for much faster meta-training during debugging
     model.meta_train(
@@ -210,14 +195,12 @@ def train(model, benchmark_meta, benchmark_val, benchmark_test, config):
 
     # Mark the run as finished
     wandb.finish()
-
     model.save_model()
-
 
 def main():
     # logpath
     logpath = os.path.dirname(os.path.abspath(__file__))
-    logpath = os.path.join(logpath, "log")
+    logpath = os.path.join(logpath, os.path.join("..", "log"))
     os.makedirs(logpath, exist_ok=True)
 
     ## config
@@ -230,7 +213,7 @@ def main():
     # seed
     config["seed"] = 1234
     # meta data
-    config["data_noise_std"] = 0.1 # retrain with 0.25 to increase variance, so that MC estimator hopefully works
+    config["data_noise_std"] = 0.1
     config["n_task_meta"] = 256
     config["n_datapoints_per_task_meta"] = 64
     config["seed_task_meta"] = 1234
@@ -323,15 +306,9 @@ def main():
         batch_size=config["batch_size"],
         n_samples=config["n_samples"],
     )
-
+    # If there is no trained model to load, the model can be trained with the following line
     #train(model, benchmark_meta, benchmark_val, benchmark_test, config)
     model.load_model(config["n_tasks_train"])
-
-    
-    # test the model
-    #x_test, y_test = collate_benchmark(benchmark=benchmark_test)
-    #model.adapt(x=x_test, y=y_test)
-    
 
     n_task_plot = 4
 
@@ -345,7 +322,7 @@ def main():
     )
 
     fig.subplots_adjust(wspace=1, hspace=-100)
-    '''
+
     plot(
         np_model=model,
         n_task_max=n_task_plot,
@@ -355,16 +332,6 @@ def main():
         axes=axes,
     )
     plt.show()
-    '''
-    task = benchmark_test.get_task_by_index(0)
-    model.adapt(x=task.x[:4], y=task.y[:4])
-
-    #print("evaluating model on test set of size: " + str(task.x.shape[0]))
-    mc_estimate = lmlhd_mc(model, task, n_samples = 10000)
-    print("mc_estimate: " + str(mc_estimate))
-    
-
-    lmlhd_ais(model, task, n_samples=100, chain_length = 300)
 
 
 if __name__ == "__main__":

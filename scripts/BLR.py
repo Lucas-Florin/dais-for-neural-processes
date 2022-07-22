@@ -10,7 +10,7 @@ import random
 
 import time
 
-from ais import ais_trajectory
+from bayesian_meta_learning.ais import ais_trajectory
 
 class BayesianLinearRegression():
 
@@ -99,7 +99,7 @@ class BayesianLinearRegression():
 
         marg_cov = intermediate_result + self.noise_var * torch.eye(intermediate_result.size()[0])
 
-        # What if y is itself multidimensional???
+        # What if y is itself multidimensional?
         marg = MultivariateNormal(marg_means, marg_cov)
 
         log_marg_lhds = marg.log_prob(test_labels)

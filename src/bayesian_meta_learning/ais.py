@@ -6,8 +6,8 @@ from typing import Union
 import torch
 from tqdm import tqdm
 
-import hmc
-import utils
+from bayesian_meta_learning import hmc
+from bayesian_meta_learning import utils
 
 import logging
 
@@ -50,66 +50,12 @@ def ais_trajectory(
             f_i = p(z)^(1-t) p(x,z)^(t) = p(z) p(x|z)^t
         =>  log f_i = log p(z) + t * log p(x|z)
         """
-        #mu_z, var_z =  model.aggregator.last_agg_state
-
-        #log_prior = utils.log_normal(z, mu_z, torch.log(var_z))
-
-
-
-        
-        # z modified to have shape 1 x 1 x B x dim_z
-        #reshaped_z = torch.unsqueeze(torch.unsqueeze(z, dim=0), dim=0)
-        
-        #logger.warning("shape of reshaped z: " + str(reshaped_z.size()))
-        #assert reshaped_z.type() == "torch.FloatTensor"
-        '''
-        reshaped_batch = torch.unsqueeze(batch, dim=0).float()
-        #print("shape of reshaped batch: " + str(reshaped_batch.type()))
-        #logger.warning("shape of reshaped batch: " + str(reshaped_batch.size()))
-        assert reshaped_batch.type() == "torch.FloatTensor"
-        mu, std = model.decoder.decode(reshaped_batch, reshaped_z)
-        log_var = torch.log(std) * 0.5
-
-        
-
-        #print("shape of batch_labels: ", batch_labels.size(), "shape of mu: ", mu.size(), "shape of log_var: ", log_var.size())
-        #logger.warning("shape of batch_labels: " + str(batch_labels.size()) + "shape of mu: " + str(mu.size()) + "shape of log_var: " + str(log_var.size()))
-        
-        # This will be modified, once we use more than one task
-        batch_labels = batch_labels.squeeze(dim=0)
-        batch_labels = batch_labels.squeeze(dim=0)
-
-        mu = mu.squeeze(dim=0)
-        mu = mu.squeeze(dim=0)
-
-        log_var = log_var.squeeze(dim=0)
-        log_var = log_var.squeeze(dim=0)
-    	
-        if(t == 1):
-            print("mu: " + str(mu))
-            print("log_var: " + str(log_var))
-        
-        #logger.warning("shape of squeezed batch_labels: " + str(batch_labels.size()) + "shape of squeezed mu: " + str(mu.size()) + "shape of squeezed log_var: " + str(log_var.size()))
-
-        log_likelihood = log_likelihood_fn(batch_labels, mu, log_var).squeeze()   
-        #logger.warning("shape of log_likelihood: " + str(log_likelihood.size()))
-        '''
         proposal = proposal_log_prob_fn(z).mul_(1 - t)
         target = target_log_prob_fn(z).mul_(t)
-        #logger.warning("shape of proposal: " + str(proposal.size()))
-        #logger.warning("shape of target: " + str(target.size()))
         return proposal + target
 
 
     B = 1 * n_samples
-    #batch = batch.to(device)
-
-    #print("batch labels: " + str(batch_labels))
-
-    #batch_labels = batch_labels[None, None, None, :, :]
-    #batch_labels = batch_labels.expand(1, 1, n_samples, batch.size(0), batch.size(1))
-    #batch = utils.safe_repeat(batch, n_samples)
-    #batch_labels = utils.safe_repeat(batch_labels, n_samples)
 
     epsilon = torch.full(size=(B,), device=device, fill_value=initial_step_size)
     accept_hist = torch.zeros(size=(B,), device=device)
@@ -117,12 +63,6 @@ def ais_trajectory(
 
     # initial sample of z
     if forward:
-        # This probably needs to change for NPs, because we want to start with samples of the prior conditioned on the context set
-        #current_z = torch.randn(size=(B, model.settings["d_z"]), device=device, dtype=torch.float32)
-        #mu_z, var_z =  initial_state
-        # logger.warning("shape of mu_z: " + str(mu_z.size()) + ", shape of var_z: " + str(var_z.size()))
-
-        #current_z = torch.normal(mu_z, torch.sqrt(var_z))
         current_z = initial_state
     
     else: # not implemented for now
@@ -164,7 +104,7 @@ def ais_trajectory(
             K=normalized_kinetic,
         )
     logw = utils.logmeanexp(logw.view(n_samples, -1).transpose(0, 1))
-    #logw = torch.logsumexp(logw, dim=-1) - torch.log(torch.tensor(n_samples))
+
     if not forward:
         logw = -logw
     
