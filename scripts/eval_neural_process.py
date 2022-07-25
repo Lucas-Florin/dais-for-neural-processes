@@ -29,14 +29,13 @@ def lmlhd_mc(np_model: NeuralProcess, task, n_samples = 10):
     y_true = np.expand_dims(task.y, axis=0) # shape needs to be n_tasks x n_points x d_y
 
     for s in range(n_samples):
-            mu, sigma = np_model.predict(x=task.x)
+            mu, var = np_model.predict(x=task.x) # predict returns variance!!
             
             if s==0:
-                #logger.warning(str(sigma))
-                logger.warning("shape of mu: " + str(mu.shape) + "shape of mu: " + str(sigma.shape))
+                logger.warning("shape of mu: " + str(mu.shape) + "shape of var: " + str(var.shape))
 
             y_pred[s] = np.expand_dims(mu, axis=0)
-            sigma_pred[s] = np.expand_dims(sigma, axis=0)
+            sigma_pred[s] = np.expand_dims(np.sqrt(var), axis=0)
 
     assert y_pred.shape == (n_samples, 1, task.x.shape[0], task.y.shape[1])
     assert sigma_pred.shape == (n_samples, 1, task.x.shape[0], task.y.shape[1])
@@ -80,6 +79,59 @@ def lmlhd_ais(np_model: NeuralProcess, task, n_samples = 10, chain_length=500):
 
     return ais_trajectory(log_prior, log_posterior, initial_state, forward=True, schedule = forward_schedule, initial_step_size = 0.01, device = device)
 
+def lmlhd_iwae(np_model: NeuralProcess, task, n_samples = 10):
+    mu_z_context, var_z_context = np_model.aggregator.last_agg_state
+
+    # mu_z and var_z have shape n_task x d_z. We need mean to have shape n_samples x d_z
+    logger.warning("shape of mu_y: " + str(mu_z_context.size()) + ", shape of var_z_context: " + str(var_z_context.size()))
+
+    mu_z_context = torch.squeeze(mu_z_context, dim=0)
+    var_z_context = torch.squeeze(var_z_context, dim=0)
+
+    mu_z_context = mu_z_context.repeat(n_samples, 1)
+    std_z_context = torch.sqrt(var_z_context.repeat(n_samples, 1))
+    logger.warning("shape of mu_y: " + str(mu_z_context.size()) + ", shape of var_y: " + str(std_z_context.size()))
+
+    # Generate samples from prior adapted on whole target set
+
+    np_model.adapt(x = task.x, y = task.y)
+    
+    mu_z_target, var_z_target = np_model.aggregator.last_agg_state
+
+    # mu_z and var_z have shape n_task x d_z. We need mean to have shape n_samples x d_z
+
+    mu_z_target = torch.squeeze(mu_z_target, dim=0)
+    var_z_target = torch.squeeze(var_z_target, dim=0)
+
+    mu_z_target = mu_z_target.repeat(n_samples, 1)
+    std_z_target = torch.sqrt(var_z_target.repeat(n_samples, 1))
+    
+    target_z_samples = Normal(mu_z_target, std_z_target).sample() 
+    
+    # Evaluate probabilities of z samples in both distributions
+    log_context_probs = torch.sum(Normal(mu_z_context, std_z_context).log_prob(target_z_samples), dim=-1)
+    log_target_probs = torch.sum(Normal(mu_z_target, std_z_target).log_prob(target_z_samples), dim=-1)
+
+    # Compute likelihood on target set for every latent sample
+    target_z_samples = torch.unsqueeze(torch.unsqueeze(target_z_samples, dim=0), dim=0)
+    test_set_x = torch.unsqueeze(torch.from_numpy(task.x).float(), dim=0)
+    test_set_y = torch.unsqueeze(torch.from_numpy(task.y).float(), dim=0)
+
+    assert test_set_x.ndim == 3  # (n_tsk, n_tst, d_x)
+    assert target_z_samples.ndim == 4  # (n_tsk, n_ls, n_marg, d_z)
+    mu_y, var_y = np_model.decoder.decode(test_set_x, target_z_samples)
+    mu_y = torch.squeeze(torch.squeeze(mu_y, dim=0), dim=0)
+    var_y = torch.squeeze(torch.squeeze(var_y, dim=0), dim=0)
+    
+    log_likelihood_probs = torch.sum(utils.log_normal(test_set_y, mu_y, torch.log(var_y)), dim=1) # sum over d_y and then sum over data points in data set
+
+    log_importance_weights = log_context_probs - log_target_probs
+
+    logger.warning(log_importance_weights)
+
+    log_lhd = torch.logsumexp(log_likelihood_probs + log_importance_weights, dim=0) - np.log(n_samples)
+    return log_lhd.detach()
+    
 
 def collate_benchmark(benchmark: MetaLearningBenchmark):
     # collate test data
@@ -112,12 +164,12 @@ def plot(
     x_plt = np.reshape(x_plt, (-1, 1))
 
     # plot predictions
-    for i in range(n_context_points + 1):
+    for i in range(n_context_points, n_context_points + 1):
         for l in range(n_task_plot):
             task = benchmark.get_task_by_index(l)
 
             np_model.adapt(x=task.x[:i], y=task.y[:i])
-            ax = axes[i, l]
+            ax = axes[0, l]
             ax.clear()
             
             ax.scatter(task.x[i:], task.y[i:], s=15, color="g", alpha=1.0, zorder=3)
@@ -128,17 +180,21 @@ def plot(
                 ax.plot(x_plt, mu, color="b", alpha=0.3, label="posterior", zorder=2)
 
             lmlhd_mc_estimate = lmlhd_mc(np_model, task, n_samples = 10000)
-            lmlhd_ais_estimate = lmlhd_ais(np_model, task, n_samples = 1000, chain_length=200)
+            lmlhd_ais_estimate = lmlhd_ais(np_model, task, n_samples = 10, chain_length=20)
+
+            lmlhd_iwae_estimate = lmlhd_iwae(np_model, task, n_samples = 100) # This method adapts on entire target set!
+            
             print("number of context points: " + str(i) + ", task: " + str(l))
             print("MC estimate: " + str(round(lmlhd_mc_estimate[0], 3)))
-            print("AIS estimate: " + str(round(lmlhd_ais_estimate.numpy()[0], 3)))
+            print("AIS estimate: " + str(round(lmlhd_ais_estimate.item(), 3)))
+            print("IWMC estimate: " + str(round(lmlhd_iwae_estimate.item(), 3)))
 
             ax.grid(zorder=1)
 
             if(i == 0):
                 ax.set_title(f"Predictions (Task {l:d})")
 
-            ax.text(0, 0, "MC: " + str(round(lmlhd_mc_estimate[0], 3)) + ", AIS: " + str(round(lmlhd_ais_estimate.numpy()[0], 3)), horizontalalignment='left', verticalalignment='bottom', transform=ax.transAxes)
+            ax.text(0, 0, "MC: " + str(round(lmlhd_mc_estimate[0], 3)) + ", AIS: " + str(round(lmlhd_ais_estimate.item(), 3)) + ", IWMC: " + str(round(lmlhd_iwae_estimate.item(), 3)), horizontalalignment='left', verticalalignment='bottom', transform=ax.transAxes)
 
     fig.tight_layout()
     plt.show(block=False)
@@ -311,9 +367,10 @@ def main():
     model.load_model(config["n_tasks_train"])
 
     n_task_plot = 4
+    n_context_points = 64
 
     fig, axes = plt.subplots(
-        nrows=5,
+        nrows=1,
         ncols=n_task_plot,
         sharex=True,
         sharey=True,
@@ -327,7 +384,7 @@ def main():
         np_model=model,
         n_task_max=n_task_plot,
         benchmark=benchmark_test,
-        n_context_points = 4,
+        n_context_points = n_context_points,
         fig=fig,
         axes=axes,
     )
