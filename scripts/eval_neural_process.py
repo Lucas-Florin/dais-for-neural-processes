@@ -23,26 +23,42 @@ from metalearning_eval_util.util import log_marginal_likelihood_mc
 logger = logging.getLogger(__name__)
 
 def lmlhd_mc(np_model: NeuralProcess, task, n_samples = 10):
-
-    y_pred = np.zeros(shape=(n_samples, 1, task.x.shape[0], task.y.shape[1]))
-    sigma_pred = np.zeros(shape=(n_samples, 1, task.x.shape[0], task.y.shape[1]))
     y_true = np.expand_dims(task.y, axis=0) # shape needs to be n_tasks x n_points x d_y
 
-    for s in range(n_samples):
-            mu, var = np_model.predict(x=task.x) # predict returns variance!!
-            
-            if s==0:
-                logger.warning("shape of mu: " + str(mu.shape) + "shape of var: " + str(var.shape))
+    mu_z, var_z = np_model.aggregator.last_agg_state
+    assert mu_z.ndim == 2 # (n_tsk, d_z)
+    assert var_z.ndim == 2 # (n_tsk, d_z)
+    mu_z = torch.squeeze(mu_z)
+    var_z = torch.squeeze(var_z)
+    latent_distribution =  Normal(mu_z, torch.sqrt(var_z))
 
-            y_pred[s] = np.expand_dims(mu, axis=0)
-            sigma_pred[s] = np.expand_dims(np.sqrt(var), axis=0)
+    current_sample = latent_distribution.sample((n_samples,))
+    logger.warning("shape of current_sample: " + str(current_sample.shape))
+    current_sample = torch.unsqueeze(torch.unsqueeze(current_sample, dim=0), dim=0)
+    test_set_x = torch.unsqueeze(torch.from_numpy(task.x).float(), dim=0)
+    assert test_set_x.ndim == 3  # (n_tsk, n_tst, d_x)
+    assert current_sample.ndim == 4  # (n_tsk, n_ls, n_marg, d_z)
 
-    assert y_pred.shape == (n_samples, 1, task.x.shape[0], task.y.shape[1])
-    assert sigma_pred.shape == (n_samples, 1, task.x.shape[0], task.y.shape[1])
+    mu_y, std_y = np_decode(np_model, test_set_x, current_sample) # shape will be (n_tsk, n_ls, n_marg, n_tst, d_y)
 
-    lmlhd = log_marginal_likelihood_mc(y_pred, sigma_pred, y_true)
+    mu_y = torch.transpose(torch.squeeze(mu_y, dim=1), dim0=0, dim1=1).detach().numpy()
+    std_y = torch.transpose(torch.squeeze(std_y, dim=1), dim0=0, dim1=1).detach().numpy()
+    logger.warning("mu_y shape: " + str(mu_y.shape))
+    #mu, var = np_model.predict(x=task.x) # predict returns variance!!
 
-    return lmlhd
+    assert mu_y.shape == (n_samples, 1, task.x.shape[0], task.y.shape[1]) # (n_samples, n_tasks, n_points, d_y)
+    assert std_y.shape == (n_samples, 1, task.x.shape[0], task.y.shape[1])# (n_samples, n_tasks, n_points, d_y)
+
+    #lmlhd = log_marginal_likelihood_mc(mu_y, std_y, y_true)
+
+    y_true_torch = torch.from_numpy(y_true)
+    mu_y_torch = torch.from_numpy(mu_y)
+    std_y_torch = torch.from_numpy(std_y)
+
+    log_likelihood_probs = torch.sum(utils.log_normal(y_true_torch, mu_y_torch, torch.log(torch.pow(std_y_torch, 2))), dim=[1,2]) # sum over d_y and then sum over data points in data set
+    log_likelihood = torch.logsumexp(log_likelihood_probs, dim=0) - np.log(n_samples) # Average over samples
+
+    return log_likelihood, log_likelihood_probs
 
 
 def lmlhd_ais(np_model: NeuralProcess, task, n_samples = 10, chain_length=500):
@@ -79,18 +95,18 @@ def lmlhd_ais(np_model: NeuralProcess, task, n_samples = 10, chain_length=500):
 
     return ais_trajectory(log_prior, log_posterior, initial_state, forward=True, schedule = forward_schedule, initial_step_size = 0.01, device = device)
 
-def lmlhd_iwae(np_model: NeuralProcess, task, n_samples = 10):
+def lmlhd_iwmc(np_model: NeuralProcess, task, n_samples = 10):
     mu_z_context, var_z_context = np_model.aggregator.last_agg_state
 
     # mu_z and var_z have shape n_task x d_z. We need mean to have shape n_samples x d_z
-    logger.warning("shape of mu_y: " + str(mu_z_context.size()) + ", shape of var_z_context: " + str(var_z_context.size()))
+    #logger.warning("shape of mu_y: " + str(mu_z_context.size()) + ", shape of var_z_context: " + str(var_z_context.size()))
 
     mu_z_context = torch.squeeze(mu_z_context, dim=0)
     var_z_context = torch.squeeze(var_z_context, dim=0)
 
     mu_z_context = mu_z_context.repeat(n_samples, 1)
     std_z_context = torch.sqrt(var_z_context.repeat(n_samples, 1))
-    logger.warning("shape of mu_y: " + str(mu_z_context.size()) + ", shape of var_y: " + str(std_z_context.size()))
+    #logger.warning("shape of mu_y: " + str(mu_z_context.size()) + ", shape of var_y: " + str(std_z_context.size()))
 
     # Generate samples from prior adapted on whole target set
 
@@ -119,19 +135,51 @@ def lmlhd_iwae(np_model: NeuralProcess, task, n_samples = 10):
 
     assert test_set_x.ndim == 3  # (n_tsk, n_tst, d_x)
     assert target_z_samples.ndim == 4  # (n_tsk, n_ls, n_marg, d_z)
-    mu_y, var_y = np_model.decoder.decode(test_set_x, target_z_samples)
+
+    mu_y, std_y = np_decode(np_model, test_set_x, target_z_samples)
+
+    assert mu_y.ndim == 5  # (n_tsk, 1, n_samples, n_tst, d_y)
+    assert std_y.ndim == 5  # (n_tsk, 1, n_samples, n_tst, d_y)
+
+    #logger.warning("shapes after decoder: mu_y: " +str(mu_y.shape) + ", std_y: " + str(std_y.shape))
+
     mu_y = torch.squeeze(torch.squeeze(mu_y, dim=0), dim=0)
-    var_y = torch.squeeze(torch.squeeze(var_y, dim=0), dim=0)
+    std_y = torch.squeeze(torch.squeeze(std_y, dim=0), dim=0)
     
-    log_likelihood_probs = torch.sum(utils.log_normal(test_set_y, mu_y, torch.log(var_y)), dim=1) # sum over d_y and then sum over data points in data set
+    # TODO: Refactor so that utils.log_normal is not used (directly use Normal dist)
+    log_likelihood_probs = torch.sum(utils.log_normal(test_set_y, mu_y, torch.log(torch.pow(std_y, 2))), dim=-1) # sum over d_y and then sum over data points in data set
+    assert log_likelihood_probs.shape == (n_samples,)
 
     log_importance_weights = log_context_probs - log_target_probs
 
-    logger.warning(log_importance_weights)
+    #logger.warning(log_importance_weights)
 
     log_lhd = torch.logsumexp(log_likelihood_probs + log_importance_weights, dim=0) - np.log(n_samples)
-    return log_lhd.detach()
-    
+    return log_lhd.detach(), (log_likelihood_probs + log_importance_weights).detach()
+
+def np_decode(np_model, x, z):
+    assert x.ndim == 3  # (n_tsk, n_tst, d_x)
+    assert z.ndim == 4  # (n_tsk, n_ls, n_marg, d_z)
+
+    x = np_model._normalize_x(x)
+    mu_y, std_y = np_model.decoder.decode(x, z) # decoder returns std!!
+    mu_y = np_model._denormalize_mu_y(mu_y)
+
+    return mu_y, std_y
+
+def estimates_over_time(np_model, task, max_samples):
+    _, log_likelihood_probs_mc = lmlhd_mc(np_model, task, n_samples = max_samples)
+    _, log_likelihood_probs_iwmc = lmlhd_iwmc(np_model, task, n_samples = max_samples)
+    log_likelihoods_mc = []
+    log_likelihoods_iwmc = []
+    for i in range(1, int(np.log(max_samples))):
+        log_likelihoods_mc.append((torch.logsumexp(log_likelihood_probs_mc[:int(np.exp(i))], dim=0) - i).item())
+        log_likelihoods_iwmc.append((torch.logsumexp(log_likelihood_probs_iwmc[:int(np.exp(i))], dim=0) - i).item())
+
+    #logger.warning("log likelihoods: " + str(log_likelihoods))
+    x = np.arange(1, int(np.log(max_samples)))
+    l1 = plt.plot(x, log_likelihoods_mc, 'ro-', x, log_likelihoods_iwmc, 'go-')
+    plt.show()
 
 def collate_benchmark(benchmark: MetaLearningBenchmark):
     # collate test data
@@ -164,12 +212,12 @@ def plot(
     x_plt = np.reshape(x_plt, (-1, 1))
 
     # plot predictions
-    for i in range(n_context_points, n_context_points + 1):
+    for i in range(0, n_context_points + 1):
         for l in range(n_task_plot):
             task = benchmark.get_task_by_index(l)
 
             np_model.adapt(x=task.x[:i], y=task.y[:i])
-            ax = axes[0, l]
+            ax = axes[i, l]
             ax.clear()
             
             ax.scatter(task.x[i:], task.y[i:], s=15, color="g", alpha=1.0, zorder=3)
@@ -179,13 +227,13 @@ def plot(
                 mu, _ = np_model.predict(x=x_plt)
                 ax.plot(x_plt, mu, color="b", alpha=0.3, label="posterior", zorder=2)
 
-            lmlhd_mc_estimate = lmlhd_mc(np_model, task, n_samples = 10000)
+            lmlhd_mc_estimate, _ = lmlhd_mc(np_model, task, n_samples = 100)
             lmlhd_ais_estimate = lmlhd_ais(np_model, task, n_samples = 10, chain_length=20)
 
-            lmlhd_iwae_estimate = lmlhd_iwae(np_model, task, n_samples = 100) # This method adapts on entire target set!
+            lmlhd_iwae_estimate, _ = lmlhd_iwmc(np_model, task, n_samples = 100) # This method adapts on entire target set!
             
             print("number of context points: " + str(i) + ", task: " + str(l))
-            print("MC estimate: " + str(round(lmlhd_mc_estimate[0], 3)))
+            print("MC estimate: " + str(round(lmlhd_mc_estimate.item(), 3)))
             print("AIS estimate: " + str(round(lmlhd_ais_estimate.item(), 3)))
             print("IWMC estimate: " + str(round(lmlhd_iwae_estimate.item(), 3)))
 
@@ -194,7 +242,7 @@ def plot(
             if(i == 0):
                 ax.set_title(f"Predictions (Task {l:d})")
 
-            ax.text(0, 0, "MC: " + str(round(lmlhd_mc_estimate[0], 3)) + ", AIS: " + str(round(lmlhd_ais_estimate.item(), 3)) + ", IWMC: " + str(round(lmlhd_iwae_estimate.item(), 3)), horizontalalignment='left', verticalalignment='bottom', transform=ax.transAxes)
+            ax.text(0, 0, "MC: " + str(round(lmlhd_mc_estimate.item(), 3)) + ", AIS: " + str(round(lmlhd_ais_estimate.item(), 3)) + ", IWMC: " + str(round(lmlhd_iwae_estimate.item(), 3)), horizontalalignment='left', verticalalignment='bottom', transform=ax.transAxes)
 
     fig.tight_layout()
     plt.show(block=False)
@@ -204,13 +252,13 @@ def construct_log_prior(model, n_samples):
     mu_z, var_z = model.aggregator.last_agg_state
 
     # mu_z and var_z have shape n_task x d_z. We need mean to have shape n_samples x d_z
-    logger.warning("shape of mu_y: " + str(mu_z.size()) + ", shape of var_y: " + str(var_z.size()))
+    #logger.warning("shape of mu_y: " + str(mu_z.size()) + ", shape of var_y: " + str(var_z.size()))
 
     mu_z = torch.squeeze(mu_z, dim=0)
     var_z = torch.squeeze(var_z, dim=0)
     mu_z = mu_z.repeat(n_samples, 1)
     std_z = torch.sqrt(var_z.repeat(n_samples, 1))
-    logger.warning("shape of mu_y: " + str(mu_z.size()) + ", shape of var_y: " + str(std_z.size()))
+    #logger.warning("shape of mu_y: " + str(mu_z.size()) + ", shape of var_y: " + str(std_z.size()))
 
     return lambda z : torch.sum(Normal(mu_z, std_z).log_prob(z), dim=-1)
 
@@ -220,10 +268,10 @@ def construct_log_posterior(model, log_prior, test_set_x, test_set_y):
 def log_likelihood_fn(model, test_set_x, test_set_y, z):
     assert test_set_x.ndim == 3  # (n_tsk, n_tst, d_x)
     assert z.ndim == 4  # (n_tsk, n_ls, n_marg, d_z)
-    mu_y, var_y = model.decoder.decode(test_set_x, z)
+    mu_y, std_y = np_decode(model, test_set_x, z)
     mu_y = torch.squeeze(torch.squeeze(mu_y, dim=0), dim=0)
-    var_y = torch.squeeze(torch.squeeze(var_y, dim=0), dim=0)
-    result = torch.sum(utils.log_normal(test_set_y, mu_y, torch.log(var_y)), dim=1) # sum over d_y and then sum over data points in data set
+    std_y = torch.squeeze(torch.squeeze(std_y, dim=0), dim=0)
+    result = torch.sum(utils.log_normal(test_set_y, mu_y, torch.log(torch.pow(std_y, 2))), dim=1) # sum over d_y and then sum over data points in data set
     return result
 
 def train(model, benchmark_meta, benchmark_val, benchmark_test, config):
@@ -366,11 +414,16 @@ def main():
     #train(model, benchmark_meta, benchmark_val, benchmark_test, config)
     model.load_model(config["n_tasks_train"])
 
+    task = benchmark_test.get_task_by_index(0)
+    model.adapt(x=task.x[:1], y=task.y[:1])
+
+    estimates_over_time(model, task, 100000)
+    '''
     n_task_plot = 4
-    n_context_points = 64
+    n_context_points = 4
 
     fig, axes = plt.subplots(
-        nrows=1,
+        nrows=n_context_points + 1,
         ncols=n_task_plot,
         sharex=True,
         sharey=True,
@@ -389,6 +442,7 @@ def main():
         axes=axes,
     )
     plt.show()
+    '''
 
 
 if __name__ == "__main__":
