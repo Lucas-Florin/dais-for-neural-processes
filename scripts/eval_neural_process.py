@@ -1,4 +1,5 @@
 from ast import Pass
+from mimetypes import init
 import os
 import torch
 torch.manual_seed(0)
@@ -86,22 +87,24 @@ def sample_normal(mu: torch.tensor, var: torch.tensor, num_samples: int) -> torc
     #samples = ...
     #assert samples.shape == (num_samples, mu.shape)
     pass 
-
+'''
 def get_dataset_likelihood(mu_y: torch.tensor, std_y: torch.tensor, y_true: np.ndarray) -> Tuple(np.ndarray, np.ndarray):
     pass
-
+'''
 # TODO Kolja: Make AIS callable with multiple tasks at once, potentially refactor/create new functions
 def lmlhd_ais(np_model: NeuralProcess, task, n_samples = 10, chain_length=500):
+    task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
+    assert task_x.ndim == 3
+    assert task_y.ndim == 3
+    assert isinstance(task_x, np.ndarray)
+    assert isinstance(task_y, np.ndarray)
+
+    n_tsk = task_x.shape[0]
 
     log_prior = construct_log_prior(np_model, n_samples)
 
-    task_x_torch = torch.from_numpy(task.x).float()
-    task_y_torch = torch.from_numpy(task.y).float()
-
-    #reshaping of task.x to (n_tsk, n_tst, d_x)
-
-    task_x_torch = torch.unsqueeze(task_x_torch, dim=0)
-    task_y_torch = torch.unsqueeze(task_y_torch, dim=0)
+    task_x_torch = torch.from_numpy(task_x).float()
+    task_y_torch = torch.from_numpy(task_y).float()
 
     log_posterior = construct_log_posterior(np_model, log_prior, task_x_torch, task_y_torch)
     
@@ -109,21 +112,21 @@ def lmlhd_ais(np_model: NeuralProcess, task, n_samples = 10, chain_length=500):
     
     forward_schedule = torch.linspace(0, 1, chain_length, device=device)
 
-    # initial state should have shape n_samples x d_z. Also for multiple tasks?
-    # last_agg_state has dimension n_task x d_z
+    # initial state should have shape n_samples x n_task x d_z, last_agg_state has dimension n_task x d_z
     mu_z, var_z = np_model.aggregator.last_agg_state
-
-    # This can only handle a single task
-    mu_z = torch.squeeze(mu_z, dim=0)
     mu_z = mu_z.repeat(n_samples, 1)
-    var_z = torch.squeeze(var_z, dim=0)
     var_z = var_z.repeat(n_samples, 1)
 
+    d_z = mu_z.shape[-1]
+
     initial_state = torch.normal(mu_z, torch.sqrt(var_z))
+    assert initial_state.shape == (n_samples * n_tsk, d_z)
+
+    logger.warning("shape of mu_z: " + str(mu_z.shape) + ", shape of initial_state: " + str(initial_state.shape))
 
     logger.warning("shape of initial state: " + str(initial_state.size()))
 
-    return ais_trajectory(log_prior, log_posterior, initial_state, forward=True, schedule = forward_schedule, initial_step_size = 0.01, device = device)
+    return ais_trajectory(log_prior, log_posterior, initial_state, n_samples=n_samples, forward=True, schedule = forward_schedule, initial_step_size = 0.01, device = device)
 
 # TODO: make method accept proposal and target distribution (method should not change model state)
 def lmlhd_iwmc(np_model: NeuralProcess, task, n_samples = 10):
@@ -359,28 +362,50 @@ def plot(
 
 def construct_log_prior(model, n_samples):
     mu_z, var_z = model.aggregator.last_agg_state
+    assert mu_z.ndim == 2 # (n_tsk, d_z)
+    assert var_z.ndim == 2 # (n_tsk, d_z)
 
-    # mu_z and var_z have shape n_task x d_z. We need mean to have shape n_samples x d_z
+    # mu_z and var_z have shape n_task x d_z. We need mean to have shape n_samples x n_task x d_z
     #logger.warning("shape of mu_y: " + str(mu_z.size()) + ", shape of var_y: " + str(var_z.size()))
 
-    mu_z = torch.squeeze(mu_z, dim=0)
-    var_z = torch.squeeze(var_z, dim=0)
+    #mu_z = torch.squeeze(mu_z, dim=0)
+    #var_z = torch.squeeze(var_z, dim=0)
     mu_z = mu_z.repeat(n_samples, 1)
     std_z = torch.sqrt(var_z.repeat(n_samples, 1))
-    #logger.warning("shape of mu_y: " + str(mu_z.size()) + ", shape of var_y: " + str(std_z.size()))
+    #logger.warning("shape of mu_z: " + str(mu_z.size()) + ", shape of std_z: " + str(std_z.size()))
 
     return lambda z : torch.sum(Normal(mu_z, std_z).log_prob(z), dim=-1)
 
 def construct_log_posterior(model, log_prior, test_set_x, test_set_y):
-    return lambda z: log_prior(z) + log_likelihood_fn(model, test_set_x, test_set_y, torch.unsqueeze(torch.unsqueeze(z, dim=0), dim=0))
+    return lambda z: log_prior(z) + log_likelihood_fn(model, test_set_x, test_set_y, z)
 
 def log_likelihood_fn(model, test_set_x, test_set_y, z):
+    #logger.warning("shape of z input for log_likelihood_fn: " + str(z.shape))
     assert test_set_x.ndim == 3  # (n_tsk, n_tst, d_x)
-    assert z.ndim == 4  # (n_tsk, n_ls, n_marg, d_z)
-    mu_y, std_y = np_decode(model, test_set_x, z)
-    mu_y = torch.squeeze(torch.squeeze(mu_y, dim=0), dim=0)
-    std_y = torch.squeeze(torch.squeeze(std_y, dim=0), dim=0)
-    result = torch.sum(utils.log_normal(test_set_y, mu_y, torch.log(torch.pow(std_y, 2))), dim=1) # sum over d_y and then sum over data points in data set
+    assert test_set_y.ndim == 3  # (n_tsk, n_tst, d_y)
+    assert z.ndim == 2  # (n_samples * n_tsk, d_z)
+    n_tsk = test_set_x.shape[0]
+    n_samples = z.shape[0] // n_tsk
+    d_z = z.shape[1]
+
+    #logger.warning("n_task: " + str(n_tsk) + ", n_samples: " + str(n_samples) + ", d_z: " + str(d_z))
+
+    z_decoder = torch.reshape(z, (n_samples, n_tsk, d_z))
+    z_decoder = torch.unsqueeze(z_decoder.transpose(dim0=0, dim1=1), dim=1) # (n_tsk, n_ls, n_samples, d_z)
+    assert z_decoder.shape == (n_tsk, 1, n_samples, d_z)
+    mu_y, std_y = np_decode(model, test_set_x, z_decoder) # shape will be (n_tsk, n_ls, n_samples, n_tst, d_y)
+    mu_y = torch.squeeze(mu_y, dim=1) # shape will be (n_tsk, n_samples, n_tst, d_y)
+    std_y = torch.squeeze(std_y, dim=1) # shape will be (n_tsk, n_samples, n_tst, d_y)
+    assert mu_y.ndim == 4
+    assert std_y.ndim == 4
+    #logger.warning("test_set_y shape before repeat: " + str(test_set_y.shape))
+    test_set_y = torch.unsqueeze(test_set_y, dim=1).repeat(1, n_samples, 1, 1) # shape will be (n_tsk, n_samples, n_tst, d_y)
+    #logger.warning("shape of mu_y: " + str(mu_y.shape) + ", shape of std_y: " + str(std_y.shape) + ", shape of test_set_y: " + str(test_set_y.shape))
+    result = torch.sum(Normal(mu_y, std_y).log_prob(test_set_y), dim=[2,3]) # sum over d_y and over data points per task
+    result = result.transpose(dim0=0, dim1=1)
+    result = torch.reshape(result, (-1,))
+    assert result.shape == (n_samples * n_tsk,)
+    #logger.warning("result shape: " + str(result.shape))
     return result
 
 def train(model, benchmark_meta, benchmark_val, benchmark_test, config):
@@ -521,7 +546,6 @@ def main():
     
     model.load_model(config["n_tasks_train"])
     
-    
     task = benchmark_test.get_task_by_index(1)
     x_test = task.x
     y_test = task.y
@@ -530,16 +554,15 @@ def main():
     
     #model.adapt(x=task.x[:64], y=task.y[:64])
 
-    #x_test, y_test = collate_benchmark(benchmark=benchmark_test)
-    model.adapt(x=x_test[:, :0, :], y=y_test[:, :0, :])
+    x_test, y_test = collate_benchmark(benchmark=benchmark_test)
+    model.adapt(x=x_test[:1, :4, :], y=y_test[:1, :4, :])
 
-    #lmlhd_ais(model, task, n_samples = 10, chain_length=50)
-    
+    lmlhd_ais(model, (x_test[:1, :, :], y_test[:1, :, :]), n_samples = 10, chain_length=10000)
 
     #lmlhd, lmlhd_samples = lmlhd_mc(model, (x_test, y_test), n_samples = 100)
     #lmlhd, lmlhd_samples, _, _ = lmlhd_iwmc(model, (x_test, y_test), n_samples = 100)
 
-    estimates_over_time(model, (x_test, y_test), max_samples = 10000)
+    #estimates_over_time(model, (x_test, y_test), max_samples = 10000)
 
     #print(lmlhd)
 
