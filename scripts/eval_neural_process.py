@@ -20,7 +20,7 @@ from torch.distributions.normal import Normal
 from bayesian_meta_learning.ais import ais_trajectory
 from bayesian_meta_learning import utils
 
-from metalearning_eval_util.util import log_likelihood_mc_per_datapoint
+from eval_util.util import log_likelihood_mc_per_datapoint
 from scipy.special import logsumexp
 
 logger = logging.getLogger(__name__)
@@ -87,7 +87,7 @@ def sample_normal(mu: torch.tensor, var: torch.tensor, num_samples: int) -> torc
     #assert samples.shape == (num_samples, mu.shape)
     pass 
 
-def get_dataset_likelihood(mu_y: torch.tensor, std_y: torch.tensor, y_true: np.ndarray) -> Tuple(np.ndarray, np.ndarray):
+def get_dataset_likelihood(mu_y: torch.tensor, std_y: torch.tensor, y_true: np.ndarray):
     pass
 
 # TODO Kolja: Make AIS callable with multiple tasks at once, potentially refactor/create new functions
