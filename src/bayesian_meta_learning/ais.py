@@ -16,6 +16,7 @@ def ais_trajectory(
     proposal_log_prob_fn,
     target_log_prob_fn,
     initial_state,
+    n_samples: int,
     forward: bool,
     schedule: Union[torch.Tensor, List],
     initial_step_size: Optional[int] = 0.01,
@@ -29,7 +30,8 @@ def ais_trajectory(
     Args:
       proposal_log_prob_fn: Log-probability function initial distribution of AIS
       target_log_prob_fn: Log-probability function of target distribution of AIS
-      initial_state: Initial sample from the initial distribution, shape is n_samples x d_z
+      initial_state: Initial sample from the initial distribution, shape is (n_samples * n_tsk) x d_z
+      n_samples: Number of samples per task
       forward: indicate forward/backward chain
       schedule: temperature schedule, i.e. `p(z)p(x|z)^t`
       device: device to run all computation on
@@ -44,8 +46,6 @@ def ais_trajectory(
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
 
-    n_samples = initial_state.size()[0]
-
     def log_f_i(z, t):
         """Unnormalized density for intermediate distribution `f_i`:
             f_i = p(z)^(1-t) p(x,z)^(t) = p(z) p(x|z)^t
@@ -55,8 +55,7 @@ def ais_trajectory(
         target = target_log_prob_fn(z).mul_(t)
         return proposal + target
 
-
-    B = 1 * n_samples
+    B = initial_state.shape[0]
 
     epsilon = torch.full(size=(B,), device=device, fill_value=initial_step_size)
     accept_hist = torch.zeros(size=(B,), device=device)
@@ -67,7 +66,8 @@ def ais_trajectory(
         current_z = initial_state
     
     else: # not implemented for now
-        current_z = utils.safe_repeat(post_z, n_samples).to(device)
+        #current_z = utils.safe_repeat(post_z, n_samples).to(device)
+        raise NotImplementedError
 
     for j, (t0, t1) in tqdm(enumerate(zip(schedule[:-1], schedule[1:]), 1)):
         # update log importance weight
@@ -93,6 +93,7 @@ def ais_trajectory(
         # resample velocity
         current_v = torch.randn_like(current_z)
         z, v = hmc.hmc_trajectory(current_z, current_v, grad_U, epsilon, L=num_leapfrog_steps)
+
         current_z, epsilon, accept_hist = hmc.accept_reject(
             current_z,
             current_v,
@@ -104,11 +105,12 @@ def ais_trajectory(
             U=U,
             K=normalized_kinetic,
         )
+
     logw = utils.logmeanexp(logw.view(n_samples, -1).transpose(0, 1))
 
     if not forward:
         logw = -logw
     
-    print('Last batch stats %.4f' % (logw.mean().cpu().item()))
+    print("Estimated predictive log likelihoods per task: " + str(logw.numpy()))
 
     return logw
