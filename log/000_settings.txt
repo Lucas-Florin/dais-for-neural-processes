@@ -22,7 +22,7 @@ encoder_kwargs:
   mlp_layers_r: *id001
 f_act: relu
 input_mlp_std_y: ''
-logpath: c:\Users\KoljaBauer\Documents\Master\Praktikum_Autonome_Lernende_Roboter\Bayesian-Meta-Learning\scripts\..\log
+logpath: /Users/apple/Bayesian-Meta-Learning/scripts/../log
 loss_kwargs:
   n_marg: 16
 loss_type: MC
