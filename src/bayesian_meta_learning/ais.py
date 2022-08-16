@@ -31,7 +31,7 @@ def ais_trajectory(
       proposal_log_prob_fn: Log-probability function initial distribution of AIS
       target_log_prob_fn: Log-probability function of target distribution of AIS
       initial_state: Initial sample from the initial distribution, shape is (n_samples * n_tsk) x d_z
-      n_samples: Number of samples
+      n_samples: Number of samples per task
       forward: indicate forward/backward chain
       schedule: temperature schedule, i.e. `p(z)p(x|z)^t`
       device: device to run all computation on
@@ -46,9 +46,6 @@ def ais_trajectory(
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
 
-    #n_samples = initial_state.shape[0]
-    #n_tasks = initial_state.shape[1]
-
     def log_f_i(z, t):
         """Unnormalized density for intermediate distribution `f_i`:
             f_i = p(z)^(1-t) p(x,z)^(t) = p(z) p(x|z)^t
@@ -56,11 +53,8 @@ def ais_trajectory(
         """
         proposal = proposal_log_prob_fn(z).mul_(1 - t)
         target = target_log_prob_fn(z).mul_(t)
-        #logger.warning("shape of proposal: " + str(proposal.shape) + ", shape of target: " + str(target.shape))
         return proposal + target
 
-
-    #B = 1 * n_samples
     B = initial_state.shape[0]
 
     epsilon = torch.full(size=(B,), device=device, fill_value=initial_step_size)
@@ -72,13 +66,13 @@ def ais_trajectory(
         current_z = initial_state
     
     else: # not implemented for now
-        current_z = utils.safe_repeat(post_z, n_samples).to(device)
+        #current_z = utils.safe_repeat(post_z, n_samples).to(device)
+        raise NotImplementedError
 
     for j, (t0, t1) in tqdm(enumerate(zip(schedule[:-1], schedule[1:]), 1)):
         # update log importance weight
         log_int_1 = log_f_i(current_z, t0)
         log_int_2 = log_f_i(current_z, t1)
-        #logger.warning("Shape of logw: " + str(logw.shape) + ", shape of log_int_1: " + str(log_int_1.shape) + ", shape of low_int_2: " + str(log_int_2.shape))
         logw += log_int_2 - log_int_1
 
         def U(z):
@@ -99,7 +93,7 @@ def ais_trajectory(
         # resample velocity
         current_v = torch.randn_like(current_z)
         z, v = hmc.hmc_trajectory(current_z, current_v, grad_U, epsilon, L=num_leapfrog_steps)
-        #logger.warning("got here")
+
         current_z, epsilon, accept_hist = hmc.accept_reject(
             current_z,
             current_v,
@@ -111,16 +105,12 @@ def ais_trajectory(
             U=U,
             K=normalized_kinetic,
         )
-        #logger.warning("current_z shape: " + str(current_z.shape))
-    logger.warning("log_w's: " + str(logw))
-    logger.warning("n_samples: " + str(n_samples))
-    logger.warning(logw.view(n_samples, -1))
+
     logw = utils.logmeanexp(logw.view(n_samples, -1).transpose(0, 1))
-    logger.warning(logw)
 
     if not forward:
         logw = -logw
     
-    print('Last batch stats %.4f' % (logw.mean().cpu().item()))
+    print("Estimated predictive log likelihoods per task: " + str(logw.numpy()))
 
     return logw
