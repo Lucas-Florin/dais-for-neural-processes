@@ -323,12 +323,22 @@ def plot(
     x_plt = np.linspace(x_plt_min, x_plt_max, 128)
     x_plt = np.reshape(x_plt, (-1, 1))
 
+    x = np.zeros((n_task_plot, benchmark.n_datapoints_per_task, benchmark.d_x))
+    y = np.zeros((n_task_plot, benchmark.n_datapoints_per_task, benchmark.d_y))
+    for k in range(0, n_task_plot):
+        task = benchmark.get_task_by_index(k)
+        x[k] = task.x
+        y[k] = task.y
+
     # plot predictions
-    for i in range(0, n_context_points + 1):
+    for i in range(4, n_context_points + 1):
+        np_model.adapt(x=x[:, :i, :], y=y[:, :i, :])
+        lmlhd_ais_estimate = lmlhd_ais(np_model, (x, y), n_samples = 10, chain_length=1000)
+
         for l in range(n_task_plot):
             task = benchmark.get_task_by_index(l)
 
-            np_model.adapt(x=task.x[:i], y=task.y[:i])
+            #np_model.adapt(x=task.x[:i], y=task.y[:i])
             ax = axes[i, l]
             ax.clear()
             
@@ -340,7 +350,7 @@ def plot(
                 ax.plot(x_plt, mu, color="b", alpha=0.3, label="posterior", zorder=2)
 
             lmlhd_mc_estimate, _ = lmlhd_mc(np_model, task, n_samples = 10000)
-            lmlhd_ais_estimate = lmlhd_ais(np_model, task, n_samples = 10, chain_length=10000)
+            
 
             lmlhd_iwae_estimate, _ = lmlhd_iwmc(np_model, task, n_samples = 10000) # This method adapts on entire target set!
             
@@ -545,19 +555,19 @@ def main():
     #train(model, benchmark_meta, benchmark_val, benchmark_test, config)
     
     model.load_model(config["n_tasks_train"])
-    
-    task = benchmark_test.get_task_by_index(1)
+    '''
+    task = benchmark_test.get_task_by_index(0)
     x_test = task.x
     y_test = task.y
     x_test = np.expand_dims(x_test, axis=0)
     y_test = np.expand_dims(y_test, axis=0)
-    
+    '''
     #model.adapt(x=task.x[:64], y=task.y[:64])
 
-    x_test, y_test = collate_benchmark(benchmark=benchmark_test)
-    model.adapt(x=x_test[:1, :4, :], y=y_test[:1, :4, :])
-
-    lmlhd_ais(model, (x_test[:1, :, :], y_test[:1, :, :]), n_samples = 10, chain_length=10000)
+    #x_test, y_test = collate_benchmark(benchmark=benchmark_test)
+    #model.adapt(x=x_test[:4, :4, :], y=y_test[:4, :4, :])
+    #torch.manual_seed(0)
+    #lmlhd_ais(model, (x_test[:4, :, :], y_test[:4, :, :]), n_samples = 10, chain_length=10000)
 
     #lmlhd, lmlhd_samples = lmlhd_mc(model, (x_test, y_test), n_samples = 100)
     #lmlhd, lmlhd_samples, _, _ = lmlhd_iwmc(model, (x_test, y_test), n_samples = 100)
@@ -567,7 +577,7 @@ def main():
     #print(lmlhd)
 
     #estimates_over_time(model, task, 500000)
-    '''
+    
     n_task_plot = 4
     n_context_points = 4
 
@@ -593,7 +603,7 @@ def main():
     fig.savefig('temp.png', dpi=fig.dpi)
     fig.savefig('temp.pdf')
     plt.show()
-    '''
+
 
 
 if __name__ == "__main__":
