@@ -23,3 +23,5 @@ def logmeanexp(x, dim=1):
 
 def safe_repeat(x, n):
     return x.repeat(n, *[1 for _ in range(len(x.size()) - 1)])
+
+# Move our functions here!
