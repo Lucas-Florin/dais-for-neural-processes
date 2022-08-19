@@ -1,2 +1,6 @@
 # Default ignored files
 /.idea/
+/log/
+/build/
+/src/bayesian_meta_learning.egg-info
+/wandb/
