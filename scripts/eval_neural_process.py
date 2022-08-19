@@ -94,7 +94,7 @@ def get_dataset_likelihood(mu_y: torch.tensor, std_y: torch.tensor, y_true: np.n
 
     return lmlhd, lmlhd_samples
 
-def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=500):
+def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None):
     task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
     assert task_x.ndim == 3
     assert task_y.ndim == 3
@@ -107,7 +107,6 @@ def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=5
     log_prior = construct_log_prior(context_distribution, n_samples)
     log_posterior = construct_log_posterior(decode, log_prior, task_x_torch, task_y_torch)
     
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     forward_schedule = torch.linspace(0, 1, chain_length, device=device)
 
     # initial state should have shape n_samples x n_task x d_z, last_agg_state has dimension n_task x d_z
@@ -283,6 +282,7 @@ def plot(
     n_context_points: int,
     fig,
     axes,
+    device=None,
 ):
     # determine n_task
     n_task_plot = min(n_task_max, benchmark.n_task)
@@ -316,7 +316,7 @@ def plot(
         
         lmlhd_mc_estimates, _ = lmlhd_mc(lambda x,z: np_decode(np_model, x, z), (mu_z, var_z), (x_test, y_test), 10000)
         lmlhd_iwmc_estimates, _, _, _ = lmlhd_iwmc(lambda x,z: np_decode(np_model, x, z), (mu_z, var_z), (mu_z_target, var_z_target),(x_test, y_test), 10000)
-        lmlhd_ais_estimates = lmlhd_ais(lambda x,z: np_decode(np_model, x, z), (mu_z, var_z), (x_test, y_test), n_samples = 10, chain_length=10000)
+        lmlhd_ais_estimates = lmlhd_ais(lambda x,z: np_decode(np_model, x, z), (mu_z, var_z), (x_test, y_test), n_samples = 10, chain_length=1000, device=device)
 
         assert lmlhd_ais_estimates.shape == (n_task_plot,)
         assert lmlhd_mc_estimates.shape == (n_task_plot,)
@@ -439,7 +439,6 @@ def main():
     config["aggregator_type"] = "BA"
     config["loss_type"] = "MC"
     config["input_mlp_std_y"] = ""
-    config["self_attention_type"] = None
     config["f_act"] = "relu"
     config["n_hidden_layers"] = 2
     config["n_hidden_units"] = 64
@@ -449,7 +448,7 @@ def main():
     # training
     config["n_tasks_train"] = int(2**19)
     config["validation_interval"] = config["n_tasks_train"] // 4
-    config["device"] = "cuda"
+    config["device"] = "cpu"
     config["adam_lr"] = 1e-4
     config["batch_size"] = config["n_task_meta"]
     config["n_samples"] = 16
@@ -466,7 +465,6 @@ def main():
         aggregator_type=config["aggregator_type"],
         loss_type=config["loss_type"],
         input_mlp_std_y=config["input_mlp_std_y"],
-        self_attention_type=config["self_attention_type"],
         latent_prior_scale=config["latent_prior_scale"],
         f_act=config["f_act"],
         n_hidden_layers=config["n_hidden_layers"],
@@ -524,6 +522,7 @@ def main():
         n_context_points = n_context_points,
         fig=fig,
         axes=axes,
+        device=config['device']
     )
     fig.savefig('temp.png', dpi=fig.dpi)
     fig.savefig('temp.pdf')
