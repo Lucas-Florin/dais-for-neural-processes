@@ -61,8 +61,11 @@ def np_decode(np_model, x, z):
     return mu_y, std_y
 
 def build_model(config):
+    logpath = os.path.dirname(os.path.abspath(__file__))
+    logpath = os.path.join(logpath, "log")
+    os.makedirs(logpath, exist_ok=True)
     model = NeuralProcess(
-        logpath=None,
+        logpath=logpath,
         seed=config["seed"],
         d_x=config["d_x"],
         d_y=config["d_y"],
@@ -132,6 +135,7 @@ class MyExperiment(experiment.AbstractIterativeExperiment):
     def finalize(self, surrender: cw_error.ExperimentSurrender = None, crash: bool = False):
         # Skip for Quickguide
         pass
+
     def save_state(self, cw_config: dict, rep: int, n: int) -> None:
         pass
 
@@ -146,4 +150,8 @@ if __name__ == "__main__":
     cw.add_logger(SweepLogger())
 
     # RUN!
-    cw.run()
+    try: 
+        cw.run()
+    except Exception as e:
+        print(e)
+        exit(1)

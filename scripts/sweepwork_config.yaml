@@ -8,14 +8,14 @@ cpus-per-task: 20   # there are 10 cores for each GPU
 time: 1200   # in minutes
 
 ---
-name: "Experimental try"
+name: "Experimentaltry"
 # Required: Can also be set in DEFAULT
 path: "./log/sweepwork"   # location to save results in
 repetitions: 100    # number of agents wandb should initialize
 
 # if there should be multiple agents on one job, select a number > 1. Choose the same number for both options 'reps_per_job' and 'reps_in_parallel'
-reps_per_job: 3
-reps_in_parallel: 3
+reps_per_job: 1
+reps_in_parallel: 1
 iterations: 1
 params:
   aggregator_type: "BA"
@@ -26,7 +26,7 @@ params:
   n_hidden_layers: 2
   latent_prior_scale: 1.0
   decoder_output_scale: 0.1
-  n_tasks_train: 2**10
+  n_tasks_train: 2**17
   validation_interval: 2**15
   device: "cuda"
   n_samples: 16
