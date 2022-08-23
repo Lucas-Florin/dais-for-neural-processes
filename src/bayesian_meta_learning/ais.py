@@ -63,7 +63,7 @@ def ais_trajectory(
 
     # initial sample of z
     if forward:
-        current_z = initial_state
+        current_z = initial_state.to(device)
     
     else: # not implemented for now
         #current_z = utils.safe_repeat(post_z, n_samples).to(device)
@@ -111,6 +111,6 @@ def ais_trajectory(
     if not forward:
         logw = -logw
     
-    print("Estimated predictive log likelihoods per task: " + str(logw.numpy()))
+    print("Estimated predictive log likelihoods per task: " + str(logw.mean().cpu().item()))
 
     return logw
