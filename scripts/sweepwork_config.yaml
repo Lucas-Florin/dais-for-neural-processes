@@ -1,13 +1,19 @@
 # Experiment 1
-name: "sweep_experiment"
+name: "SLURM"   # MUST BE "SLURM"
+partition: "single"  # "single" for cpu, "gpu_4" or gpu_8" for gpu
+job-name: "Eval_neural_process" # this will be the experiment's name in slurm
+num_parallel_jobs: 10 # max number of jobs executed in parallel
+ntasks: 1   #  leave that like it is
+cpus-per-task: 20   # there are 10 cores for each GPU
+time: 1200   # in minutes
 
 # Required: Can also be set in DEFAULT
 path: "./log/sweepwork"   # location to save results in
-repetitions: 10    # number of agents wandb should initialize
+repetitions: 100    # number of agents wandb should initialize
 
 # if there should be multiple agents on one job, select a number > 1. Choose the same number for both options 'reps_per_job' and 'reps_in_parallel'
-reps_per_job: 1
-reps_in_parallel: 1
+reps_per_job: 3
+reps_in_parallel: 3
 iterations: 1
 
 params:

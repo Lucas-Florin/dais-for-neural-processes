@@ -61,12 +61,8 @@ def np_decode(np_model, x, z):
     return mu_y, std_y
 
 def build_model(config):
-    logpath = os.path.dirname(os.path.abspath(__file__))
-    logpath = os.path.join(logpath, "log")
-    os.makedirs(logpath, exist_ok=True)
-
     model = NeuralProcess(
-        logpath=logpath,
+        logpath=None,
         seed=config["seed"],
         d_x=config["d_x"],
         d_y=config["d_y"],
