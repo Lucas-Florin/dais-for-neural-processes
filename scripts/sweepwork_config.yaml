@@ -19,12 +19,31 @@ params:
   n_hidden_layers: 2
   latent_prior_scale: 1.0
   decoder_output_scale: 0.1
-  n_tasks_train: 2**17
+  n_tasks_train: 2**10
   validation_interval: 2**15
   device: "cuda"
   n_samples: 16
   n_context: [1, 32]
   seed: 1234
+
+benchmark_params:
+  benchmark: "Quadratic1D"
+  data_noise_std: 0.1
+  n_task_meta: 256
+  n_datapoints_per_task_meta: 64
+  seed_task_meta: 1234
+  seed_x_meta: 2234
+  seed_noise_meta: 3234
+  n_task_val: 16
+  n_datapoints_per_task_val: 64
+  seed_task_val: 1236
+  seed_x_val: 2236
+  seed_noise_val: 3236
+  n_task_test: 256
+  n_datapoints_per_task_test: 64
+  seed_task_test: 1235
+  seed_x_test: 2235
+  seed_noise_test: 3235
 
 wandb_sweep:
   name: "sweep_name"   # name of the newly created sweep
