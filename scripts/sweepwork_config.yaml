@@ -7,6 +7,8 @@ ntasks: 1   #  leave that like it is
 cpus-per-task: 20   # there are 10 cores for each GPU
 time: 1200   # in minutes
 
+---
+name: "Experimental try"
 # Required: Can also be set in DEFAULT
 path: "./log/sweepwork"   # location to save results in
 repetitions: 100    # number of agents wandb should initialize
@@ -15,7 +17,6 @@ repetitions: 100    # number of agents wandb should initialize
 reps_per_job: 3
 reps_in_parallel: 3
 iterations: 1
-
 params:
   aggregator_type: "BA"
   loss_type: "MC"
