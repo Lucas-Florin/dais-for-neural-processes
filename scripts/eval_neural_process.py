@@ -41,7 +41,6 @@ def lmlhd_mc(decode, distribution, task, n_samples = 100): # -> tuple[np.ndarray
     current_sample = sample_normal(mu_z, var_z, n_samples)
     current_sample = torch.unsqueeze(torch.transpose(current_sample, dim0=0, dim1=1), dim=1)
 
-    logger.warning("shape of current_sample: " + str(current_sample.shape))
     assert test_set_x.ndim == 3  # (n_tsk, n_tst, d_x)
     assert current_sample.ndim == 4  # (n_tsk, n_ls, n_marg, d_z)
     assert current_sample.shape == (n_tsk, 1, n_samples, d_z)
@@ -49,7 +48,6 @@ def lmlhd_mc(decode, distribution, task, n_samples = 100): # -> tuple[np.ndarray
     mu_y, std_y = decode(test_set_x, current_sample) # shape will be (n_tsk, n_ls, n_marg, n_tst, d_y)
     mu_y = torch.transpose(torch.squeeze(mu_y, dim=1), dim0=0, dim1=1).detach().numpy()
     std_y = torch.transpose(torch.squeeze(std_y, dim=1), dim0=0, dim1=1).detach().numpy()
-    logger.warning("mu_y shape: " + str(mu_y.shape))
 
     assert mu_y.shape == (n_samples, n_tsk, n_points, d_y) # (n_samples, n_tasks, n_points, d_y)
     assert std_y.shape == (n_samples, n_tsk, n_points, d_y)# (n_samples, n_tasks, n_points, d_y)
@@ -75,7 +73,6 @@ def sample_normal(mu: torch.tensor, var: torch.tensor, num_samples: int): # -> t
     d_z = mu.shape[1]
     latent_distribution =  Normal(mu, torch.sqrt(var))
     samples = latent_distribution.sample((num_samples,)) # (number_samples, mu.shape)
-    logger.warning("shape of current_sample: " + str(samples.shape))
     assert samples.shape == (num_samples, n_tsk, d_z)
 
     return samples
@@ -214,27 +211,47 @@ def np_decode(np_model, x, z):
 
     return mu_y, std_y
 
-def estimates_over_time(decode, task, context_distribution, target_distribution, n_samples = 10):
-    n_tsk = 1
-    _, log_likelihood_probs_mc = lmlhd_mc(decode,context_distribution, task, n_samples = n_samples)
-    _, log_likelihood_probs_iwmc, log_lhds_samples, log_importance_weights = lmlhd_iwmc(decode, context_distribution, target_distribution, task, n_samples = n_samples)
+def estimates_over_time(decode, task, context_distributions, target_distribution, n_samples = 10):
+    task_x, task_y = task
+    n_tsk = task_x.shape[0]
+    log_likelihood_probs_mc_matrix = np.zeros((len(context_distributions), n_samples, n_tsk))
+    #log_likelihood_probs_iwmc_matrix = np.zeros((len(context_distributions), n_samples, n_tsk))
+    for i, context_distribution in enumerate(context_distributions):
+        _, log_likelihood_probs_mc = lmlhd_mc(decode,context_distribution, task, n_samples = n_samples)
+        #_, log_likelihood_probs_iwmc, _, _ = lmlhd_iwmc(decode, context_distribution, target_distribution, task, n_samples = n_samples)
+        log_likelihood_probs_mc_matrix[i, :, :] = log_likelihood_probs_mc
+        #log_likelihood_probs_iwmc_matrix[i, :, :] = log_likelihood_probs_iwmc
 
-    log_likelihoods_mc = []
-    log_likelihoods_iwmc = []
-    for i in range(3, int(np.log(n_samples)) + 1):
-        log_likelihoods_mc_per_task = logsumexp(log_likelihood_probs_mc[:int(np.exp(i)), :], axis=0) - i
-        assert log_likelihoods_mc_per_task.shape == (n_tsk,)
-        log_likelihoods_mc.append((logsumexp((log_likelihoods_mc_per_task), axis=0) - np.log(n_tsk)).item())
+    log_likelihoods_mc = [[] for x in range(len(context_distributions))]
+    log_likelihoods_iwmc = [[] for x in range(len(context_distributions))]
 
-        log_likelihoods_iwmc_per_task = logsumexp(log_likelihood_probs_iwmc[:int(np.exp(i)), :], axis=0) - i
-        assert log_likelihoods_iwmc_per_task.shape == (n_tsk,)
-        log_likelihoods_iwmc.append((logsumexp(log_likelihoods_iwmc_per_task, axis=0) - np.log(n_tsk)).item())
+    for j in range(4, int(np.log(n_samples)) + 1):
+        # logsumexp over the samples
+        log_likelihoods_mc_per_task = logsumexp(log_likelihood_probs_mc_matrix[:, :int(np.exp(j)), :], axis=1) - j
+        assert log_likelihoods_mc_per_task.shape == (len(context_distributions), n_tsk)
+
+        # logsumexp over the samples
+        #log_likelihoods_iwmc_per_task = logsumexp(log_likelihood_probs_iwmc_matrix[:, :int(np.exp(j)), :], axis=1) - j
+        #assert log_likelihoods_iwmc_per_task.shape == (len(context_distributions), n_tsk)
+
+        for k in range(0, len(context_distributions)):
+            # take median across tasks
+            median_log_likelihoods_mc = np.median(log_likelihoods_mc_per_task, axis=1)
+            assert median_log_likelihoods_mc.shape == (len(context_distributions),)
+            log_likelihoods_mc[k].append(median_log_likelihoods_mc[k].item())
+            #log_likelihoods_iwmc[k].append((logsumexp(log_likelihoods_iwmc_per_task, axis=1) - np.log(n_tsk))[k].item())
 
     logger.warning("log_likelihoods_mc: " + str(log_likelihoods_mc))
     logger.warning("log_likelihoods_iwmc: " + str(log_likelihoods_iwmc))
-    x = np.arange(3, int(np.log(n_samples)) + 1)
-    plt.plot(x, log_likelihoods_mc, 'ro-', label='MC')
-    plt.plot(x, log_likelihoods_iwmc, 'go-', label='IWMC')
+    x = np.arange(4, int(np.log(n_samples)) + 1)
+    line_symbols = ['o-', 'o--', 'o-.', 'o:', 'v-', '+-']
+    for k in range(0, len(context_distributions)):
+        plt.plot(x, log_likelihoods_mc[k], f'r{line_symbols[k]}', label=f'MC, {2 ** k} context points')
+    '''
+    for k in range(0, len(context_distributions)):
+        plt.plot(x, log_likelihoods_iwmc[k], f'g{line_symbols[k]}', label=f'IWMC, {2 ** k} context points')
+    '''
+    #plt.plot(x, log_likelihoods_iwmc[0], 'go-', label='IWMC')
     plt.xlabel("Log num samples")
     plt.ylabel("log predictive likelihood estimate")
     plt.legend()
@@ -251,6 +268,12 @@ def plot_likelihoods_box(decode, task, distribution1, distribution2, num_samples
 
     _, log_lhds_samples_context = lmlhd_mc(decode, distribution1, task, num_samples)
     _, log_lhds_samples_target = lmlhd_mc(decode, distribution2, task, num_samples)
+
+    logger.warning(log_lhds_samples_context.shape)
+    logger.warning(log_lhds_samples_context.max())
+
+    logger.warning(log_lhds_samples_target.shape)
+    logger.warning(log_lhds_samples_target.max())
  
     plt.boxplot([log_lhds_samples_context[:, 0], log_lhds_samples_target[:, 0]])
     plt.title("Likelihoods of latent samples from different distributions")
@@ -482,27 +505,33 @@ def main():
     
     model.load_model(config["n_tasks_train"])
     
-    #task = benchmark_test.get_task_by_index(0)
+    #task = benchmark_test.get_task_by_index(1)
     #x_test = np.expand_dims(task.x, axis=0)
     #y_test = np.expand_dims(task.y, axis=0)
+    x_test, y_test = collate_benchmark(benchmark_test)
 
-    #model.adapt(x = x_test[:, :4, :], y = y_test[:, :4, :])
-
-    #mu_z, var_z = model.aggregator.last_agg_state
+    
+    context_distributions = []
+    for i in range(6):
+        model.adapt(x = x_test[:, :(2 ** i), :], y = y_test[:, :(2 ** i), :])
+        mu_z, var_z = model.aggregator.last_agg_state
+        context_distributions.append((mu_z, var_z))
+    
     #torch.manual_seed(0)
     #lmlhd_estimate_mc, _ = lmlhd_mc(lambda x,z: np_decode(model, x, z), (mu_z, var_z), (x_test, y_test), 100)
     #print(lmlhd_estimate_mc)
-
-    #model.adapt(x = x_test[:,:32,:], y = y_test[:,:32,:])
-    #mu_z_target, var_z_target = model.aggregator.last_agg_state
+    #model.adapt(x = x_test[:, :4, :], y = y_test[:, :4, :])
+    #mu_z, var_z = model.aggregator.last_agg_state
+    model.adapt(x = x_test[:,:32,:], y = y_test[:,:32,:])
+    mu_z_target, var_z_target = model.aggregator.last_agg_state
     #torch.manual_seed(0)
     #lmlhd_estimate_iwmc, _, _, _ = lmlhd_iwmc(lambda x,z: np_decode(model, x, z), (mu_z, var_z), (mu_z_target, var_z_target),(x_test, y_test), 100)
     #print(lmlhd_estimate_iwmc)
 
     #plot_weights_likelihoods(lambda x,z: np_decode(model, x, z), (x_test, y_test), (mu_z, var_z), (mu_z_target, var_z_target), 100)
-    #plot_likelihoods_box(lambda x,z: np_decode(model, x, z), (x_test, y_test), (mu_z, var_z), (mu_z_target, var_z_target), 100)
-    #estimates_over_time(lambda x,z: np_decode(model, x, z), (x_test, y_test), (mu_z, var_z), (mu_z_target, var_z_target), n_samples = 1000)
-
+    #plot_likelihoods_box(lambda x,z: np_decode(model, x, z), (x_test, y_test), (mu_z, var_z), (mu_z_target, var_z_target), 10000)
+    estimates_over_time(lambda x,z: np_decode(model, x, z), (x_test, y_test), context_distributions, (mu_z_target, var_z_target), n_samples = 1100)
+    '''
     n_task_plot = 4
     n_context_points = 4
     
@@ -528,6 +557,7 @@ def main():
     fig.savefig('temp.png', dpi=fig.dpi)
     fig.savefig('temp.pdf')
     plt.show()
+    '''
 
 if __name__ == "__main__":
     main()
