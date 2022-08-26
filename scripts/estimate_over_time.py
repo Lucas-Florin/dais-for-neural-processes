@@ -126,15 +126,15 @@ class MyExperiment(experiment.AbstractExperiment):
 
         x_test, y_test = eval_neural_process.collate_benchmark(benchmark_test)
         context_distributions = []
-        mu_z, var_z = model.aggregator.last_agg_state
-        context_distributions.append((mu_z, var_z))
+        #mu_z, var_z = model.aggregator.last_agg_state
+        #context_distributions.append((mu_z, var_z))
         for i in range(6):
             model.adapt(x = x_test[:, :(2 ** i), :], y = y_test[:, :(2 ** i), :])
             mu_z, var_z = model.aggregator.last_agg_state
             context_distributions.append((mu_z, var_z))
-        mu_z, var_z = model.aggregator.last_agg_state
+        mu_z_target, var_z_target = model.aggregator.last_agg_state
         
-        eval_neural_process.estimates_over_time(lambda x,z: eval_neural_process.np_decode(model, x, z), (x_test, y_test), context_distributions, (mu_z_target, var_z_target), n_samples = 100)
+        eval_neural_process.estimates_over_time(lambda x,z: eval_neural_process.np_decode(model, x, z), (x_test, y_test), context_distributions, (mu_z_target, var_z_target), n_samples = 23000)
     def finalize(self, surrender: cw_error.ExperimentSurrender = None, crash: bool = False):
         pass
 
