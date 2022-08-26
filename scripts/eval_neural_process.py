@@ -71,7 +71,7 @@ def estimates_over_time(decode, task, context_distributions, target_distribution
     plt.ylabel("log predictive likelihood estimate")
     plt.legend()
     plt.title('Estimates over time, n_context_points = 4')
-    plt.show()
+    plt.savefig("plot.png")
 
 def plot_likelihoods_box(decode, task, distribution1, distribution2, num_samples):
     mu1, var1 = distribution1
