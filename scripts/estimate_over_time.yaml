@@ -5,7 +5,7 @@ num_parallel_jobs: 10 # max number of jobs executed in parallel
 ntasks: 1   #  leave that like it is
 cpus-per-task: 20   # there are 10 cores for each GPU
 time: 1200   # in minutes
-mem-per-cpu: 80000
+mem-per-cpu: 60000
 
 ---
 name: "Plot graph"
