@@ -114,16 +114,26 @@ class MyExperiment(experiment.AbstractIterativeExperiment):
         callback=None,
         )
 
-        x_test, y_test = collate_benchmark(self.benchmark_test)
-
-        context_size = 4
-        model.adapt(x = x_test[:, :context_size, :], y = y_test[:, :context_size, :])
-        mu_z, var_z = model.aggregator.last_agg_state
-        lmlhd_estimate_mc, _ = lmlhd_mc(lambda x,z: np_decode(model, x, z), (mu_z, var_z), (x_test, y_test), 1000)
         
-        objective = np.median(lmlhd_estimate_mc)
-
-        print("Median: " + str(objective))
+        eval_params = params["eval_params"]
+        x_test, y_test = collate_benchmark(self.benchmark_test)
+        context_size_list = eval_params["context_sizes"]
+        objective_list = list()
+        for cs in context_size_list:
+            model.adapt(x = x_test[:, :cs, :], y = y_test[:, :cs, :])
+            mu_z, var_z = model.aggregator.last_agg_state
+            lmlhd_estimate_mc, _ = lmlhd_mc(
+                lambda x,z: np_decode(model, x, z), 
+                (mu_z, var_z), 
+                (x_test, y_test), 
+                eval_params["n_mc_samples"],
+                batch_size=eval_params["batch_size"],
+            )
+            objective_list.append(np.median(lmlhd_estimate_mc))
+        objective = np.mean(objective_list)
+        print(f'Objective list: ')
+        print(objective_list)
+        print("Objective: " + str(objective))
         return {"objective": objective}
     
     def finalize(self, surrender: cw_error.ExperimentSurrender = None, crash: bool = False):
