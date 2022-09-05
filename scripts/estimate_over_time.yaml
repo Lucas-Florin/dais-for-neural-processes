@@ -5,7 +5,7 @@ num_parallel_jobs: 10 # max number of jobs executed in parallel
 ntasks: 1   #  leave that like it is
 cpus-per-task: 20   # there are 10 cores for each GPU
 time: 1200   # in minutes
-mem-per-cpu: 60000
+mem-per-cpu: 1000
 
 ---
 name: "Plot graph"
@@ -16,4 +16,44 @@ reps_per_job: 1    # number of repetitions in each job. useful for paralellizati
 reps_in_parallel: 1
 
 params:
-  key: "default"
+  model: "StandardNP"
+  benchmark: "Quadratic1D"
+
+  d_z: 16
+  aggregator_type: "BA"
+  loss_type: "MC"
+  input_mlp_std_y: ""
+  self_attention_type: "None"
+  f_act: "relu"
+  n_hidden_layers: 2
+  n_hidden_units: 64
+  latent_prior_scale: 1.0
+  decoder_output_scale: 0.1
+  n_tasks_train: 2**20
+  validation_interval: 2**15
+  device: "cuda"
+  adam_lr: 1e-4
+  n_samples: 16
+  n_context: [1, 16]
+  seed: 1234
+
+  data_noise_std: 0.1
+  n_task_meta: 32
+  n_datapoints_per_task_meta: 32
+  seed_task_meta: 1234
+  seed_x_meta: 2234
+  seed_noise_meta: 3234
+  n_task_val: 16
+  n_datapoints_per_task_val: 32
+  seed_task_val: 1236
+  seed_x_val: 2236
+  seed_noise_val: 3236
+  n_task_test: 32
+  n_datapoints_per_task_test: 32
+  seed_task_test: 1235
+  seed_x_test: 2235
+  seed_noise_test: 3235
+
+  batch_size: 32
+
+  

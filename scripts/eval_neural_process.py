@@ -32,7 +32,7 @@ def estimates_over_time(decode, task, context_distributions, target_distribution
     log_likelihood_probs_mc_matrix = np.zeros((len(context_distributions), n_samples, n_tsk))
     #log_likelihood_probs_iwmc_matrix = np.zeros((len(context_distributions), n_samples, n_tsk))
     for i, context_distribution in enumerate(context_distributions):
-        _, log_likelihood_probs_mc = lmlhd_mc(decode,context_distribution, task, n_samples = n_samples)
+        _, log_likelihood_probs_mc = lmlhd_mc(decode, context_distribution, task, n_samples = n_samples)
         #_, log_likelihood_probs_iwmc, _, _ = lmlhd_iwmc(decode, context_distribution, target_distribution, task, n_samples = n_samples)
         log_likelihood_probs_mc_matrix[i, :, :] = log_likelihood_probs_mc
         #log_likelihood_probs_iwmc_matrix[i, :, :] = log_likelihood_probs_iwmc
@@ -58,20 +58,23 @@ def estimates_over_time(decode, task, context_distributions, target_distribution
 
     logger.warning("log_likelihoods_mc: " + str(log_likelihoods_mc))
     logger.warning("log_likelihoods_iwmc: " + str(log_likelihoods_iwmc))
+    '''
     x = np.arange(4, int(np.log(n_samples)) + 1)
     line_symbols = ['o-', 'o--', 'o-.', 'o:', 'v-', '+-']
     for k in range(0, len(context_distributions)):
         plt.plot(x, log_likelihoods_mc[k], f'r{line_symbols[k]}', label=f'MC, {2 ** k} context points')
-    '''
-    for k in range(0, len(context_distributions)):
-        plt.plot(x, log_likelihoods_iwmc[k], f'g{line_symbols[k]}', label=f'IWMC, {2 ** k} context points')
-    '''
+    
+    #for k in range(0, len(context_distributions)):
+    #    plt.plot(x, log_likelihoods_iwmc[k], f'g{line_symbols[k]}', label=f'IWMC, {2 ** k} context points')
+    
     #plt.plot(x, log_likelihoods_iwmc[0], 'go-', label='IWMC')
     plt.xlabel("Log num samples")
     plt.ylabel("log predictive likelihood estimate")
     plt.legend()
     plt.title('Estimates over time, n_context_points = 4')
     plt.savefig("plot.png")
+    '''
+    return log_likelihood_probs_mc_matrix
 
 def plot_likelihoods_box(decode, task, distribution1, distribution2, num_samples):
     mu1, var1 = distribution1
@@ -192,7 +195,7 @@ def train(model, benchmark_meta, benchmark_val, benchmark_test, config):
       project="Eval Neural Process", 
       # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
       name=f"experiment_3", 
-      config={"n_tasks_train": config["n_tasks_train"], "n_hidden_units": config["n_hidden_units"]}
+      config={"n_tasks_train": eval(config["n_tasks_train"]), "n_hidden_units": config["n_hidden_units"]}
     )
 
     log_loss = lambda n_meta_tasks_seen, np_model, metrics: wandb.log(metrics) if metrics is not None else None
@@ -201,8 +204,8 @@ def train(model, benchmark_meta, benchmark_val, benchmark_test, config):
     model.meta_train(
         benchmark_meta=benchmark_meta,
         benchmark_val=benchmark_val,
-        n_tasks_train=config["n_tasks_train"],
-        validation_interval=config["validation_interval"],
+        n_tasks_train=eval(config["n_tasks_train"]),
+        validation_interval=eval(config["validation_interval"]),
         callback=log_loss,
     )
 
