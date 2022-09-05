@@ -1,0 +1,54 @@
+---
+name: "DEFAULT"
+# Required: Can also be set in DEFAULT
+path: "./experiments/baseline"   # location to save results in
+repetitions: 1    # number of agents wandb should initialize
+
+# if there should be multiple agents on one job, select a number > 1. Choose the same number for both options 'reps_per_job' and 'reps_in_parallel'
+reps_per_job: 1
+reps_in_parallel: 1
+iterations: 1
+params:
+  model_params:
+    seed: 1234
+    d_z: 16
+    aggregator_type: "BA"
+    loss_type: "MC"
+    input_mlp_std_y: ""
+    self_attention_type: "None"
+    f_act: "relu"
+    n_hidden_layers: 2
+    n_hidden_units: 64
+    latent_prior_scale: 1.0
+    decoder_output_scale: 0.1
+    device: "cpu"
+    adam_lr: 0.0001
+    n_samples: 16
+    n_context: [1, 32]
+
+  train_params:
+    n_tasks_train: 2**17
+    validation_interval: 2**15
+
+  benchmark_params:
+    benchmark: "Quadratic1D"
+    data_noise_std: 0.1
+    n_task_meta: 256
+    n_datapoints_per_task_meta: 64
+    seed_task_meta: 1234
+    seed_x_meta: 2234
+    seed_noise_meta: 3234
+    n_task_val: 16
+    n_datapoints_per_task_val: 64
+    seed_task_val: 1236
+    seed_x_val: 2236
+    seed_noise_val: 3236
+    n_task_test: 256
+    n_datapoints_per_task_test: 64
+    seed_task_test: 1235
+    seed_x_test: 2235
+    seed_noise_test: 3235
+
+
+---
+name: Baseline
