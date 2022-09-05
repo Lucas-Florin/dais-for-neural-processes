@@ -8,35 +8,62 @@ from scipy.special import logsumexp
 from torch.distributions.normal import Normal
 
 
-def lmlhd_mc(decode, distribution, task, n_samples = 100): # -> tuple[np.ndarray, np.ndarray]
+def get_task_batch_iterator(*args, batch_size=None):
+    assert batch_size is not None
+    assert all([type(a) is np.ndarray or type(a) is torch.Tensor for a in args])
+    main_dimesion = args[0].shape[0]
+    assert all([a.shape[0] == main_dimesion for a in args])
+    processed_datapoints = 0
+    while processed_datapoints < main_dimesion:
+        this_batch_size = min(batch_size, main_dimesion - processed_datapoints)
+        batch_list = [
+            a[processed_datapoints:processed_datapoints+this_batch_size, ...]
+            for a in args
+        ]
+        yield tuple(batch_list)
+        processed_datapoints += this_batch_size
+    assert processed_datapoints == main_dimesion    
+
+
+def lmlhd_mc(decode, distribution, task, n_samples = 100, batch_size = None): # -> tuple[np.ndarray, np.ndarray]
     task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
     mu_z, var_z = distribution
     assert mu_z.ndim == 2 # (n_tsk, d_z)
     assert var_z.ndim == 2 # (n_tsk, d_z)
 
     n_tsk = mu_z.shape[0]
+    batch_size = n_tsk if batch_size is None else batch_size
     d_z = mu_z.shape[1]
     n_points = task_x.shape[1]
     d_x = task_x.shape[2]
     d_y = task_y.shape[2]
-    test_set_x = torch.from_numpy(task_x).float()
 
-    current_sample = sample_normal(mu_z, var_z, n_samples)
-    current_sample = torch.unsqueeze(torch.transpose(current_sample, dim0=0, dim1=1), dim=1)
+    lmlhd_list = list()    
+    lmlhd_samples_list = list()    
 
-    assert test_set_x.ndim == 3  # (n_tsk, n_tst, d_x)
-    assert current_sample.ndim == 4  # (n_tsk, n_ls, n_marg, d_z)
-    assert current_sample.shape == (n_tsk, 1, n_samples, d_z)
+    for mu_z_batch, var_z_batch, task_x_batch, task_y_batch in get_task_batch_iterator(mu_z, var_z, task_x, task_y, batch_size=batch_size):
+        this_batch_size = mu_z_batch.shape[0]
+        current_sample = sample_normal(mu_z_batch, var_z_batch, n_samples)
+        current_sample = torch.unsqueeze(torch.transpose(current_sample, dim0=0, dim1=1), dim=1)
 
-    mu_y, std_y = decode(test_set_x, current_sample) # shape will be (n_tsk, n_ls, n_marg, n_tst, d_y)
-    mu_y = torch.transpose(torch.squeeze(mu_y, dim=1), dim0=0, dim1=1).detach().numpy()
-    std_y = torch.transpose(torch.squeeze(std_y, dim=1), dim0=0, dim1=1).detach().numpy()
+        assert task_x_batch.ndim == 3  # (n_tsk, n_tst, d_x)
+        assert current_sample.ndim == 4  # (n_tsk, n_ls, n_marg, d_z)
+        assert current_sample.shape == (this_batch_size, 1, n_samples, d_z)
 
-    assert mu_y.shape == (n_samples, n_tsk, n_points, d_y) # (n_samples, n_tasks, n_points, d_y)
-    assert std_y.shape == (n_samples, n_tsk, n_points, d_y)# (n_samples, n_tasks, n_points, d_y)
+        mu_y, std_y = decode(torch.from_numpy(task_x_batch).float(), current_sample) # shape will be (n_tsk, n_ls, n_marg, n_tst, d_y)
+        mu_y = torch.transpose(torch.squeeze(mu_y, dim=1), dim0=0, dim1=1).detach().numpy()
+        std_y = torch.transpose(torch.squeeze(std_y, dim=1), dim0=0, dim1=1).detach().numpy()
 
-    lmlhd, lmlhd_samples = get_dataset_likelihood(mu_y, std_y, task_y)
+        assert mu_y.shape == (n_samples, this_batch_size, n_points, d_y) # (n_samples, n_tasks, n_points, d_y)
+        assert std_y.shape == (n_samples, this_batch_size, n_points, d_y)# (n_samples, n_tasks, n_points, d_y)
 
+        lmlhd_batch, lmlhd_samples_batch = get_dataset_likelihood(mu_y, std_y, task_y_batch)
+        lmlhd_list.append(lmlhd_batch)
+        lmlhd_samples_list.append(lmlhd_samples_batch)
+        
+    lmlhd = np.concatenate(lmlhd_list)
+    lmlhd_samples = np.concatenate(lmlhd_samples_list)
+        
     assert lmlhd.shape == (n_tsk,) # check output
 
     return lmlhd, lmlhd_samples
