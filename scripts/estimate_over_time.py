@@ -24,33 +24,12 @@ class MyExperiment(experiment.AbstractExperiment):
         os.makedirs(logpath, exist_ok=True)
 
         ## config
-        config = dict()
-        # model and benchmark
-        config["model"] = "StandardNP"
-        config["benchmark"] = "Quadratic1D"
-        # logging
+        config = cw_config["params"]
+
+        logpath = os.path.dirname(os.path.abspath(__file__))
+        logpath = os.path.join(logpath, os.path.join("..", "log"))
+        os.makedirs(logpath, exist_ok=True)
         config["logpath"] = logpath
-        # seed
-        config["seed"] = 1234
-        # meta data
-        config["data_noise_std"] = 0.1
-        config["n_task_meta"] = 256
-        config["n_datapoints_per_task_meta"] = 64
-        config["seed_task_meta"] = 1234
-        config["seed_x_meta"] = 2234
-        config["seed_noise_meta"] = 3234
-        # validation data
-        config["n_task_val"] = 16 
-        config["n_datapoints_per_task_val"] = 64
-        config["seed_task_val"] = 1236
-        config["seed_x_val"] = 2236
-        config["seed_noise_val"] = 3236
-        # test data
-        config["n_task_test"] = 256 
-        config["n_datapoints_per_task_test"] = 64
-        config["seed_task_test"] = 1235
-        config["seed_x_test"] = 2235
-        config["seed_noise_test"] = 3235
 
         # generate benchmarks
         benchmark_meta = BM_DICT[config["benchmark"]](
@@ -81,24 +60,6 @@ class MyExperiment(experiment.AbstractExperiment):
         # architecture
         config["d_x"] = benchmark_meta.d_x
         config["d_y"] = benchmark_meta.d_y
-        config["d_z"] = 16
-        config["aggregator_type"] = "BA"
-        config["loss_type"] = "MC"
-        config["input_mlp_std_y"] = ""
-        config["f_act"] = "relu"
-        config["n_hidden_layers"] = 2
-        config["n_hidden_units"] = 64
-        config["latent_prior_scale"] = 1.0
-        config["decoder_output_scale"] = config["data_noise_std"]
-
-        # training
-        config["n_tasks_train"] = int(2**19)
-        config["validation_interval"] = config["n_tasks_train"] // 4
-        config["device"] = "cpu"
-        config["adam_lr"] = 1e-4
-        config["batch_size"] = config["n_task_meta"]
-        config["n_samples"] = 16
-        config["n_context"] = [1, config["n_datapoints_per_task_meta"] // 2,]
 
         # generate NP model
         model = NeuralProcess(
@@ -117,24 +78,35 @@ class MyExperiment(experiment.AbstractExperiment):
             n_hidden_units=config["n_hidden_units"],
             decoder_output_scale=config["decoder_output_scale"],
             device=config["device"],
-            adam_lr=config["adam_lr"],
+            adam_lr=eval(config["adam_lr"]),
             batch_size=config["batch_size"],
             n_samples=config["n_samples"],
         )
-
-        model.load_model(config["n_tasks_train"])
+        eval_neural_process.train(model, benchmark_meta, benchmark_val, benchmark_test, config)
+        #model.load_model(eval(config["n_tasks_train"]))
 
         x_test, y_test = eval_neural_process.collate_benchmark(benchmark_test)
+        x_test = x_test[:config["n_task_meta"], :, :]
+        y_test = y_test[:config["n_task_meta"], :, :]
+
+        print(x_test.shape)
         context_distributions = []
+
+        context_sizes = [0, 1, 2, 4, 5, 6, 8, 12, 16]
         #mu_z, var_z = model.aggregator.last_agg_state
         #context_distributions.append((mu_z, var_z))
-        for i in range(6):
-            model.adapt(x = x_test[:, :(2 ** i), :], y = y_test[:, :(2 ** i), :])
+        for context_size in context_sizes:
+            model.adapt(x = x_test[:, :context_size, :], y = y_test[:, :context_size, :])
             mu_z, var_z = model.aggregator.last_agg_state
             context_distributions.append((mu_z, var_z))
         mu_z_target, var_z_target = model.aggregator.last_agg_state
         
-        eval_neural_process.estimates_over_time(lambda x,z: eval_neural_process.np_decode(model, x, z), (x_test, y_test), context_distributions, (mu_z_target, var_z_target), n_samples = 23000)
+        log_likelihood_probs_mc_matrix = eval_neural_process.estimates_over_time(lambda x,z: eval_neural_process.np_decode(model, x, z), (x_test, y_test), context_distributions, (mu_z_target, var_z_target), n_samples = 100)
+
+        print(log_likelihood_probs_mc_matrix.shape)
+        with open('log_likelihood_probs_mc_matrix.npy', 'wb') as f:
+            np.save(f, log_likelihood_probs_mc_matrix)
+
     def finalize(self, surrender: cw_error.ExperimentSurrender = None, crash: bool = False):
         pass
 
