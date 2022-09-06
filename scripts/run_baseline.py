@@ -87,7 +87,7 @@ def build_model(config, logpath):
 
     return model
 
-class MyExperiment(experiment.AbstractIterativeExperiment):
+class MyExperiment(experiment.AbstractExperiment):
     # ...
 
     def initialize(self, config: dict, rep: int, logger: cw_logging.LoggerArray) -> None:
@@ -98,7 +98,7 @@ class MyExperiment(experiment.AbstractIterativeExperiment):
         self.benchmark_val = benchmark_val
         self.benchmark_test = benchmark_test
 
-    def iterate(self, cw_config: dict, rep: int, n: int) -> dict:
+    def run(self, cw_config: dict, rep: int, logger: cw_logging.AbstractLogger) -> dict:
         params = cw_config["params"]
         model_params = copy.deepcopy(params["model_params"])
         model_params["d_x"] = self.benchmark_meta.d_x
@@ -115,7 +115,7 @@ class MyExperiment(experiment.AbstractIterativeExperiment):
         callback=None,
         )
 
-        
+        # Evaluate
         eval_params = params["eval_params"]
         x_test, y_test = collate_benchmark(self.benchmark_test)
         context_size_list = eval_params["context_sizes"]
@@ -135,12 +135,10 @@ class MyExperiment(experiment.AbstractIterativeExperiment):
         print(f'Objective list: ')
         print(objective_list)
         print("Objective: " + str(objective))
-        return {"objective": objective}
+        result =  {"objective": objective}
+        logger.process(result)
     
     def finalize(self, surrender: cw_error.ExperimentSurrender = None, crash: bool = False):
-        pass
-
-    def save_state(self, cw_config: dict, rep: int, n: int) -> None:
         pass
 
 
