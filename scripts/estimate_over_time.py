@@ -19,82 +19,40 @@ class MyExperiment(experiment.AbstractExperiment):
         pass
 
     def run(self, cw_config: dict, rep: int, logger: cw_logging.LoggerArray) -> None:
-        logpath = os.path.dirname(os.path.abspath(__file__))
-        logpath = os.path.join(logpath, os.path.join("..", "log"))
-        os.makedirs(logpath, exist_ok=True)
 
         ## config
         config = cw_config["params"]
 
-        logpath = os.path.dirname(os.path.abspath(__file__))
-        logpath = os.path.join(logpath, os.path.join("..", "log"))
-        os.makedirs(logpath, exist_ok=True)
-        config["logpath"] = logpath
-
-        # generate benchmarks
-        benchmark_meta = BM_DICT[config["benchmark"]](
-            n_task=config["n_task_meta"],
-            n_datapoints_per_task=config["n_datapoints_per_task_meta"],
-            output_noise=config["data_noise_std"],
-            seed_task=config["seed_task_meta"],
-            seed_x=config["seed_x_meta"],
-            seed_noise=config["seed_noise_meta"],
-        )
-        benchmark_val = BM_DICT[config["benchmark"]](
-            n_task=config["n_task_val"],
-            n_datapoints_per_task=config["n_datapoints_per_task_val"],
-            output_noise=config["data_noise_std"],
-            seed_task=config["seed_task_val"],
-            seed_x=config["seed_x_val"],
-            seed_noise=config["seed_noise_val"],
-        )
-        benchmark_test = BM_DICT[config["benchmark"]](
-            n_task=config["n_task_test"],
-            n_datapoints_per_task=config["n_datapoints_per_task_test"],
-            output_noise=config["data_noise_std"],
-            seed_task=config["seed_task_test"],
-            seed_x=config["seed_x_test"],
-            seed_noise=config["seed_noise_test"],
-        )
+        benchmark_meta, benchmark_val, benchmark_test = build_benchmarks(config)
 
         # architecture
         config["d_x"] = benchmark_meta.d_x
         config["d_y"] = benchmark_meta.d_y
 
-        # generate NP model
-        model = NeuralProcess(
-            logpath=config["logpath"],
-            seed=config["seed"],
-            d_x=config["d_x"],
-            d_y=config["d_y"],
-            d_z=config["d_z"],
-            n_context=config["n_context"],
-            aggregator_type=config["aggregator_type"],
-            loss_type=config["loss_type"],
-            input_mlp_std_y=config["input_mlp_std_y"],
-            latent_prior_scale=config["latent_prior_scale"],
-            f_act=config["f_act"],
-            n_hidden_layers=config["n_hidden_layers"],
-            n_hidden_units=config["n_hidden_units"],
-            decoder_output_scale=config["decoder_output_scale"],
-            device=config["device"],
-            adam_lr=eval(config["adam_lr"]),
-            batch_size=config["batch_size"],
-            n_samples=config["n_samples"],
-        )
-        eval_neural_process.train(model, benchmark_meta, benchmark_val, benchmark_test, config)
-        #model.load_model(eval(config["n_tasks_train"]))
+        seed_list = [12, 123, 1234, 12345, 123456]
 
+        for seed in seed_list:
+            config["seed"] = seed
+            logpath = os.path.dirname(os.path.abspath(__file__))
+            logpath = os.path.join(logpath, os.path.join("..", f"log_seed_{seed}"))
+            os.makedirs(logpath, exist_ok=True)
+            config["logpath"] = logpath
+            # generate NP model
+            model = build_model(config)
+            eval_neural_process.train(model, benchmark_meta, benchmark_val, benchmark_test, config)
+            #model.load_model(eval(config["n_tasks_train"]))
+
+        '''
         x_test, y_test = eval_neural_process.collate_benchmark(benchmark_test)
         x_test = x_test[:config["n_task_meta"], :, :]
         y_test = y_test[:config["n_task_meta"], :, :]
 
         print(x_test.shape)
+        
+        
         context_distributions = []
-
         context_sizes = [0, 1, 2, 4, 5, 6, 8, 12, 16]
-        #mu_z, var_z = model.aggregator.last_agg_state
-        #context_distributions.append((mu_z, var_z))
+
         for context_size in context_sizes:
             model.adapt(x = x_test[:, :context_size, :], y = y_test[:, :context_size, :])
             mu_z, var_z = model.aggregator.last_agg_state
@@ -107,8 +65,63 @@ class MyExperiment(experiment.AbstractExperiment):
         with open('log_likelihood_probs_mc_matrix.npy', 'wb') as f:
             np.save(f, log_likelihood_probs_mc_matrix)
 
+        '''
+
     def finalize(self, surrender: cw_error.ExperimentSurrender = None, crash: bool = False):
         pass
+
+
+def build_model(config):
+    model = NeuralProcess(
+        logpath=config["logpath"],
+        seed=config["seed"],
+        d_x=config["d_x"],
+        d_y=config["d_y"],
+        d_z=config["d_z"],
+        n_context=config["n_context"],
+        aggregator_type=config["aggregator_type"],
+        loss_type=config["loss_type"],
+        input_mlp_std_y=config["input_mlp_std_y"],
+        self_attention_type=None,
+        latent_prior_scale=config["latent_prior_scale"],
+        f_act=config["f_act"],
+        n_hidden_layers=config["n_hidden_layers"],
+        n_hidden_units=config["n_hidden_units"],
+        decoder_output_scale=config["decoder_output_scale"],
+        device=config["device"],
+        adam_lr=eval(config["adam_lr"]),
+        batch_size=config["batch_size"],
+        n_samples=config["n_samples"],
+    )
+
+    return model
+
+def build_benchmarks(params):
+    benchmark_meta = BM_DICT[params["benchmark"]](
+        n_task=params["n_task_meta"],
+        n_datapoints_per_task=params["n_datapoints_per_task_meta"],
+        output_noise=params["data_noise_std"],
+        seed_task=params["seed_task_meta"],
+        seed_x=params["seed_x_meta"],
+        seed_noise=params["seed_noise_meta"],
+    )
+    benchmark_val = BM_DICT[params["benchmark"]](
+        n_task=params["n_task_val"],
+        n_datapoints_per_task=params["n_datapoints_per_task_val"],
+        output_noise=params["data_noise_std"],
+        seed_task=params["seed_task_val"],
+        seed_x=params["seed_x_val"],
+        seed_noise=params["seed_noise_val"],
+    )
+    benchmark_test = BM_DICT[params["benchmark"]](
+        n_task=params["n_task_test"],
+        n_datapoints_per_task=params["n_datapoints_per_task_test"],
+        output_noise=params["data_noise_std"],
+        seed_task=params["seed_task_test"],
+        seed_x=params["seed_x_test"],
+        seed_noise=params["seed_noise_test"],
+    )
+    return benchmark_meta, benchmark_val, benchmark_test
 
 if __name__ == "__main__":
     # Give the MyExperiment Class, not MyExperiment() Object!!
