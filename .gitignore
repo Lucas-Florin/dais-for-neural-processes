@@ -6,4 +6,5 @@
 /wandb/
 .vscode/
 experiments/
+plots/
 **/__pycache__/
