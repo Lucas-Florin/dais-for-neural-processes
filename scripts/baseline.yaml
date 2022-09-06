@@ -1,7 +1,7 @@
 ---
 name: "DEFAULT"
 # Required: Can also be set in DEFAULT
-path: "./experiments/baseline"   # location to save results in
+path: "./experiments/"   # location to save results in
 repetitions: 1    # number of agents wandb should initialize
 
 # if there should be multiple agents on one job, select a number > 1. Choose the same number for both options 'reps_per_job' and 'reps_in_parallel'
@@ -65,3 +65,15 @@ name: baseline
 wandb:
   group: first_runs
   project: NP_baseline
+
+---
+name: baseline_hd
+
+wandb:
+  group: first_runs
+  project: NP_baseline
+
+params: 
+  eval_params:
+    n_mc_samples: 10000
+    batch_size: 1
