@@ -4,6 +4,7 @@ from sweep_work.experiment_wrappers import wrap_experiment
 
 from cw2 import experiment, cw_error, cluster_work
 from cw2.cw_data import cw_logging
+from cw2.cw_data.cw_wandb_logger import WandBLogger
 import numpy as np
 import os
 import copy
@@ -162,7 +163,7 @@ def main():
     cw = cluster_work.ClusterWork(MyExperiment)
 
     
-    # cw.add_logger(cw_logging.getLogger())
+    cw.add_logger(WandBLogger())
 
     # RUN!
     cw.run()

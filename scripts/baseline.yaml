@@ -54,6 +54,14 @@ params:
     seed_x_test: 2235
     seed_noise_test: 3235
 
+wandb:
+  group: default
+  job_type: run
+  project: default
 
 ---
-name: Baseline
+name: baseline
+
+wandb:
+  group: first_runs
+  project: NP_baseline
