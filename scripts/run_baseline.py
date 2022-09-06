@@ -1,3 +1,8 @@
+import numpy as np
+import os
+import copy
+from pathlib import Path
+
 from sweep_work.create_sweep import create_sweep
 from sweep_work.sweep_logger import SweepLogger
 from sweep_work.experiment_wrappers import wrap_experiment
@@ -5,9 +10,6 @@ from sweep_work.experiment_wrappers import wrap_experiment
 from cw2 import experiment, cw_error, cluster_work
 from cw2.cw_data import cw_logging
 from cw2.cw_data.cw_wandb_logger import WandBLogger
-import numpy as np
-import os
-import copy
 
 from bayesian_meta_learning.lmlhd_estimators import lmlhd_mc
 from metalearning_benchmarks import MetaLearningBenchmark
@@ -135,7 +137,10 @@ class MyExperiment(experiment.AbstractExperiment):
         print(f'Objective list: ')
         print(objective_list)
         print("Objective: " + str(objective))
-        result =  {"objective": objective}
+        result =  {
+            "objective": objective,
+            "objective_list": objective_list,
+        }
         logger.process(result)
     
     def finalize(self, surrender: cw_error.ExperimentSurrender = None, crash: bool = False):
