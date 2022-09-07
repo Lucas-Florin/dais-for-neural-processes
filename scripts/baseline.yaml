@@ -1,4 +1,15 @@
 ---
+# Slurm bwuni cpu
+name: "SLURM"   # MUST BE "SLURM"
+partition: "single"  # "single" for cpu, "gpu_4" or gpu_8" for gpu
+job-name: "baseline" # this will be the experiment's name in slurm
+num_parallel_jobs: 1 # max number of jobs executed in parallel
+ntasks: 1   #  leave that like it is
+cpus-per-task: 40   # there are 10 cores for each GPU
+mem-per-cpu: 4500
+time: 60   # in minutes
+
+---
 name: "DEFAULT"
 # Required: Can also be set in DEFAULT
 path: "./experiments/"   # location to save results in
@@ -82,5 +93,5 @@ wandb:
 
 params: 
   eval_params:
-    n_mc_samples: 10000
+    n_mc_samples: 100000
     batch_size: 1
