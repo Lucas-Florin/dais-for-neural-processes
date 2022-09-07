@@ -102,7 +102,7 @@ def get_dataset_likelihood(mu_y: torch.tensor, std_y: torch.tensor, y_true: np.n
     return lmlhd, lmlhd_samples
 
 
-def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None):
+def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, num_leapfrog_steps=10):
     task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
     assert task_x.ndim == 3
     assert task_y.ndim == 3
@@ -128,7 +128,9 @@ def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=5
     initial_state = torch.normal(mu_z, torch.sqrt(var_z))
     assert initial_state.shape == (n_samples * n_tsk, d_z)
 
-    return ais_trajectory(log_prior, log_posterior, initial_state, n_samples=n_samples, forward=True, schedule = forward_schedule, initial_step_size = 0.01, device = device)
+    return ais_trajectory(log_prior, log_posterior, initial_state, n_samples=n_samples, forward=True, 
+                          schedule = forward_schedule, initial_step_size = 0.01, device = device, 
+                          num_leapfrog_steps=num_leapfrog_steps)
 
 
 def construct_log_prior(context_distribution, n_samples):

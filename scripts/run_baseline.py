@@ -2,6 +2,7 @@ import numpy as np
 import os
 import copy
 from pathlib import Path
+from tqdm import tqdm
 
 from sweep_work.create_sweep import create_sweep
 from sweep_work.sweep_logger import SweepLogger
@@ -11,7 +12,7 @@ from cw2 import experiment, cw_error, cluster_work
 from cw2.cw_data import cw_logging
 from cw2.cw_data.cw_wandb_logger import WandBLogger
 
-from bayesian_meta_learning.lmlhd_estimators import lmlhd_mc
+from bayesian_meta_learning.lmlhd_estimators import lmlhd_mc, lmlhd_ais
 from metalearning_benchmarks import MetaLearningBenchmark
 from metalearning_benchmarks import benchmark_dict as BM_DICT
 from neural_process.neural_process import NeuralProcess
@@ -119,32 +120,64 @@ class MyExperiment(experiment.AbstractExperiment):
 
         # Evaluate
         eval_params = params["eval_params"]
+        assert eval_params['use_mc'] or eval_params['use_ais']
         x_test, y_test = collate_benchmark(self.benchmark_test)
         context_size_list = eval_params["context_sizes"]
-        objective_list = list()
-        for cs in context_size_list:
+        mc_list = list()
+        ais_list = list()
+        for cs in tqdm(context_size_list):
             model.adapt(x = x_test[:, :cs, :], y = y_test[:, :cs, :])
             mu_z, var_z = model.aggregator.last_agg_state
-            lmlhd_estimate_mc, _ = lmlhd_mc(
-                lambda x,z: np_decode(model, x, z), 
-                (mu_z, var_z), 
-                (x_test, y_test), 
-                eval_params["n_mc_samples"],
-                batch_size=eval_params["batch_size"],
-            )
-            objective_list.append(np.median(lmlhd_estimate_mc))
-        objective = np.mean(objective_list)
-        print(f'Objective list: ')
-        print(objective_list)
-        print("Objective: " + str(objective))
-        result =  {
-            "objective": objective,
-            "objective_list": objective_list,
-        }
+            if eval_params['use_mc']:
+                lmlhd_estimate_mc, _ = lmlhd_mc(
+                    lambda x,z: np_decode(model, x, z), 
+                    (mu_z, var_z), 
+                    (x_test, y_test), 
+                    eval_params["mc_n_samples"],
+                    batch_size=eval_params["mc_batch_size"],
+                )
+                mc_list.append(np.median(lmlhd_estimate_mc))
+            if eval_params['use_ais']:
+                lmlhd_estimate_ais = lmlhd_ais(
+                    lambda x,z: np_decode(model, x, z), 
+                    (mu_z, var_z), 
+                    (x_test, y_test), 
+                    n_samples=eval_params["ais_n_samples"],
+                    chain_length=eval_params['ais_chain_length'],
+                    device=model_params['device'],
+                    num_leapfrog_steps=eval_params['ais_n_hmc_steps']
+                )
+                ais_list.append(np.median(lmlhd_estimate_ais))
+        result = dict()
+        if eval_params['use_mc']:
+            mc_objective = np.mean(mc_list)
+            print(f'Objective list: ')
+            print(mc_list)
+            print("Objective: " + str(mc_objective))
+            result.update({
+                "mc_objective": mc_objective,
+                "mc_objective_list": mc_list,
+            })
+            for l in logger:
+                if type(l) is WandBLogger:
+                    l.log_plot(context_size_list, mc_list, ["context_size", "MC objective"], 'mc_plot', 'MC estimator for NLL')
+
+
+        if eval_params['use_ais']:
+            ais_objective = np.mean(ais_list)
+            print(f'AIS Objective list: ')
+            print(ais_list)
+            print("AIS Objective: " + str(ais_objective))
+            result.update({
+                "ais_objective": ais_objective,
+                "ais_objective_list": ais_list,
+            })
+            for l in logger:
+                if type(l) is WandBLogger:
+                    l.log_plot(context_size_list, ais_list, ["context_size", "AIS objective"], 'ais_plot', 'AIS estimator for NLL')
+        
         logger.process(result)
-        for l in logger:
-            if type(l) is WandBLogger:
-                l.log_plot(context_size_list, objective_list, ["context_size", "objective"])
+        
     
     def finalize(self, surrender: cw_error.ExperimentSurrender = None, crash: bool = False):
         pass
