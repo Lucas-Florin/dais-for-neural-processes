@@ -142,6 +142,9 @@ class MyExperiment(experiment.AbstractExperiment):
             "objective_list": objective_list,
         }
         logger.process(result)
+        for l in logger:
+            if type(l) is WandBLogger:
+                l.log_plot(context_size_list, objective_list, ["context_size", "objective"])
     
     def finalize(self, surrender: cw_error.ExperimentSurrender = None, crash: bool = False):
         pass
