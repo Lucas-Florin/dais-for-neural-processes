@@ -184,3 +184,41 @@ def lmlhd_iwmc(decode, context_distribution, target_distribution, task, n_sample
     log_lhd = logsumexp(np.add(lmlhd_samples, log_importance_weights), axis=0) - np.log(n_samples)
     assert log_lhd.shape == (n_tsk,)
     return log_lhd, np.add(lmlhd_samples, log_importance_weights), lmlhd_samples, log_importance_weights
+
+
+def lmlhd_elbo(decode, context_distribution, target_distribution, task, n_samples = 1000):
+    mu_context, var_context = context_distribution
+    mu_target, var_target = target_distribution
+    assert mu_context.shape == var_context.shape
+    assert mu_target.shape == var_target.shape
+    assert mu_context.shape == mu_target.shape
+    task_x, task_y = task
+    n_tsk = mu_context.shape[0]
+    d_z = mu_context.shape[1]
+    n_points = task_x.shape[1]
+    d_x = task_x.shape[2]
+    d_y = task_y.shape[2]
+    test_set_x = torch.from_numpy(task_x).float()
+    test_set_y = torch.from_numpy(task_y).float()
+    target_z_samples = sample_normal(mu_target, var_target, n_samples)
+    assert target_z_samples.shape == (n_samples, n_tsk, d_z)
+    # Evaluate probabilities of z samples in both distributions
+    log_context_probs = torch.sum(Normal(mu_context.repeat(n_samples, 1, 1), torch.sqrt(var_context.repeat(n_samples, 1, 1))).log_prob(target_z_samples), dim=-1)
+    log_target_probs = torch.sum(Normal(mu_target.repeat(n_samples, 1, 1), torch.sqrt(var_target.repeat(n_samples, 1, 1))).log_prob(target_z_samples), dim=-1)
+    assert log_context_probs.shape == (n_samples, n_tsk)
+    assert log_target_probs.shape == (n_samples, n_tsk)
+    log_importance_weights = (log_context_probs - log_target_probs).detach().numpy()
+    assert log_importance_weights.shape == (n_samples, n_tsk)
+    target_z_samples = torch.unsqueeze(torch.transpose(target_z_samples, dim0=0, dim1=1), dim=1)
+    mu_y, std_y = decode(test_set_x, target_z_samples)
+    assert mu_y.shape == (n_tsk, 1, n_samples, n_points, d_y)
+    assert std_y.shape == (n_tsk, 1, n_samples, n_points, d_y)
+    mu_y = torch.transpose(torch.squeeze(mu_y, dim=1), dim0=0, dim1=1).detach().numpy()
+    std_y = torch.transpose(torch.squeeze(std_y, dim=1), dim0=0, dim1=1).detach().numpy()
+    assert mu_y.shape == (n_samples, n_tsk, n_points, d_y)
+    assert std_y.shape == (n_samples, n_tsk, n_points, d_y)
+    _, lmlhd_samples = get_dataset_likelihood(mu_y, std_y, task_y)
+    assert lmlhd_samples.shape == (n_samples, n_tsk)
+    log_lhd = np.mean(np.add(lmlhd_samples, log_importance_weights), axis=0)
+    assert log_lhd.shape == (n_tsk,)
+    return log_lhd, np.add(lmlhd_samples, log_importance_weights), lmlhd_samples, log_importance_weights

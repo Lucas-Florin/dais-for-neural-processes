@@ -105,12 +105,13 @@ def ais_trajectory(
             U=U,
             K=normalized_kinetic,
         )
+    log_w_samples = logw.view(n_samples, -1)
 
     logw = utils.logmeanexp(logw.view(n_samples, -1).transpose(0, 1))
 
     if not forward:
         logw = -logw
     
-    print("Estimated predictive log likelihoods per task: " + str(logw.mean().cpu().item()))
+    print("Estimated predictive log likelihoods per task: " + str(logw))
 
-    return logw
+    return logw, log_w_samples

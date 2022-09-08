@@ -29,7 +29,7 @@ params:
   n_hidden_units: 64
   latent_prior_scale: 1.0
   decoder_output_scale: 0.1
-  n_tasks_train: 2**17
+  n_tasks_train: 2**20
   validation_interval: 2**15
   device: "cuda"
   adam_lr: 1e-4
