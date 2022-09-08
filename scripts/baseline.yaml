@@ -3,11 +3,11 @@
 name: "SLURM"   # MUST BE "SLURM"
 partition: "single"  # "single" for cpu, "gpu_4" or gpu_8" for gpu
 job-name: "baseline" # this will be the experiment's name in slurm
-num_parallel_jobs: 1 # max number of jobs executed in parallel
+path_to_template: scripts/sbatch_template_bwuni_simple.sh
+num_parallel_jobs: 50 # max number of jobs executed in parallel
 ntasks: 1   #  leave that like it is
-cpus-per-task: 40   # there are 10 cores for each GPU
-mem-per-cpu: 4500
-time: 60   # in minutes
+cpus-per-task: 1   # there are 10 cores for each GPU
+time: 1200   # in minutes
 
 ---
 name: "DEFAULT"
