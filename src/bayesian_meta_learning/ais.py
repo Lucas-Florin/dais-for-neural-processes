@@ -111,6 +111,4 @@ def ais_trajectory(
     if not forward:
         logw = -logw
     
-    print("Estimated predictive log likelihoods per task: " + str(logw.mean().cpu().item()))
-
     return logw
