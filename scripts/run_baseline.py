@@ -12,7 +12,7 @@ from cw2 import experiment, cw_error, cluster_work
 from cw2.cw_data import cw_logging
 from cw2.cw_data.cw_wandb_logger import WandBLogger
 
-from bayesian_meta_learning.lmlhd_estimators import lmlhd_mc, lmlhd_ais
+from bayesian_meta_learning.lmlhd_estimators import lmlhd_mc, lmlhd_ais, lmlhd_dais
 from metalearning_benchmarks import MetaLearningBenchmark
 from metalearning_benchmarks import benchmark_dict as BM_DICT
 from neural_process.neural_process import NeuralProcess
@@ -86,6 +86,8 @@ def build_model(config, logpath):
         adam_lr=config["adam_lr"],
         batch_size=config["batch_size"],
         n_samples=config["n_samples"],
+        n_annealing_steps=config["dais_n_annealing_steps"],
+        dais_step_size=config["dais_step_size"],
     )
 
     return model
@@ -125,6 +127,7 @@ class MyExperiment(experiment.AbstractExperiment):
         context_size_list = eval_params["context_sizes"]
         mc_list = list()
         ais_list = list()
+        dais_list = list()
         for cs in tqdm(context_size_list):
             model.adapt(x = x_test[:, :cs, :], y = y_test[:, :cs, :])
             mu_z, var_z = model.aggregator.last_agg_state
@@ -145,9 +148,22 @@ class MyExperiment(experiment.AbstractExperiment):
                     n_samples=eval_params["ais_n_samples"],
                     chain_length=eval_params['ais_chain_length'],
                     device=model_params['device'],
-                    num_leapfrog_steps=eval_params['ais_n_hmc_steps']
+                    num_leapfrog_steps=eval_params['ais_n_hmc_steps'],
+                    step_size=eval_params['ais_step_size']
                 )
                 ais_list.append(np.median(lmlhd_estimate_ais))
+            if eval_params['use_dais']:
+                lmlhd_estimate_dais = lmlhd_dais(
+                    lambda x,z: np_decode(model, x, z), 
+                    (mu_z, var_z), 
+                    (x_test, y_test), 
+                    n_samples=eval_params["dais_n_samples"],
+                    chain_length=eval_params['dais_chain_length'],
+                    device=model_params['device'],
+                    # num_leapfrog_steps=eval_params['dais_n_hmc_steps'],
+                    step_size=eval_params['dais_step_size']
+                )
+                dais_list.append(np.median(lmlhd_estimate_dais))
         result = dict()
         if eval_params['use_mc']:
             mc_objective = np.mean(mc_list)
@@ -160,7 +176,7 @@ class MyExperiment(experiment.AbstractExperiment):
             })
             for l in logger:
                 if type(l) is WandBLogger:
-                    l.log_plot(context_size_list, mc_list, ["context_size", "MC objective"], 'mc_plot', 'MC estimator for NLL')
+                    l.log_plot(context_size_list, mc_list, ["context_size", "MC objective"], 'mc_plot', 'MC estimator for LL')
 
 
         if eval_params['use_ais']:
@@ -174,7 +190,20 @@ class MyExperiment(experiment.AbstractExperiment):
             })
             for l in logger:
                 if type(l) is WandBLogger:
-                    l.log_plot(context_size_list, ais_list, ["context_size", "AIS objective"], 'ais_plot', 'AIS estimator for NLL')
+                    l.log_plot(context_size_list, ais_list, ["context_size", "AIS objective"], 'ais_plot', 'AIS estimator for LL')
+        
+        if eval_params['use_dais']:
+            dais_objective = np.mean(dais_list)
+            print(f'DAIS Objective list: ')
+            print(dais_list)
+            print("AIS Objective: " + str(dais_objective))
+            result.update({
+                "ais_objective": dais_objective,
+                "ais_objective_list": dais_list,
+            })
+            for l in logger:
+                if type(l) is WandBLogger:
+                    l.log_plot(context_size_list, dais_list, ["context_size", "DAIS objective"], 'dais_plot', 'DAIS estimator for LL')
         
         logger.process(result)
         

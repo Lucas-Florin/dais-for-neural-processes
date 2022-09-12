@@ -7,7 +7,7 @@ path_to_template: scripts/sbatch_template_bwuni_simple.sh
 num_parallel_jobs: 50 # max number of jobs executed in parallel
 ntasks: 1   #  leave that like it is
 cpus-per-task: 1   # there are 10 cores for each GPU
-time: 1200   # in minutes
+time: 4000   # in minutes
 
 ---
 name: "DEFAULT"
@@ -23,6 +23,7 @@ params:
   model_params:
     seed: 1234
     d_z: 16
+    n_context: [1, 32]
     aggregator_type: "BA"
     loss_type: "MC"
     input_mlp_std_y: ""
@@ -35,7 +36,8 @@ params:
     device: "cpu"
     adam_lr: 0.0001
     n_samples: 16
-    n_context: [1, 32]
+    dais_n_annealing_steps: 10
+    dais_step_size: 0.08
 
   train_params:
     n_tasks_train: 2**17
@@ -50,6 +52,13 @@ params:
     ais_n_samples: 10
     ais_chain_length: 100
     ais_n_hmc_steps: 10
+    ais_step_size: 0.01
+
+    use_dais: False
+    dais_n_samples: 10
+    dais_chain_length: 100
+    # dais_n_hmc_steps: 10
+    dais_step_size: 0.01
 
     context_sizes: [0, 1, 2, 4, 6, 8, 12, 16]
 
@@ -80,6 +89,11 @@ wandb:
 ---
 name: baseline
 
+params:
+  eval_params:
+    use_ais: False
+    use_dais: False
+
 wandb:
   group: first_runs
   project: NP_baseline
@@ -95,3 +109,13 @@ params:
   eval_params:
     n_mc_samples: 100000
     batch_size: 1
+---
+name: dais
+params: 
+  model_params:
+    loss_type: DAIS
+  eval_params: 
+    use_dais: False
+wandb:
+  project: NP_baseline
+  group: losses

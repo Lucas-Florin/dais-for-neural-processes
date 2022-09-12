@@ -6,6 +6,7 @@ from bayesian_meta_learning.ais import ais_trajectory
 from eval_util.util import log_likelihood_mc_per_datapoint
 from scipy.special import logsumexp
 from torch.distributions.normal import Normal
+from neural_process.dais import differentiable_annealed_importance_sampling
 
 
 def get_task_batch_iterator(*args, batch_size=None):
@@ -102,7 +103,7 @@ def get_dataset_likelihood(mu_y: torch.tensor, std_y: torch.tensor, y_true: np.n
     return lmlhd, lmlhd_samples
 
 
-def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, num_leapfrog_steps=10):
+def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, num_leapfrog_steps=10, step_size=0.01):
     task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
     assert task_x.ndim == 3
     assert task_y.ndim == 3
@@ -129,7 +130,7 @@ def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=5
     assert initial_state.shape == (n_samples * n_tsk, d_z)
 
     return ais_trajectory(log_prior, log_posterior, initial_state, n_samples=n_samples, forward=True, 
-                          schedule = forward_schedule, initial_step_size = 0.01, device = device, 
+                          schedule = forward_schedule, initial_step_size = step_size, device = device, 
                           num_leapfrog_steps=num_leapfrog_steps)
 
 
@@ -213,3 +214,40 @@ def lmlhd_iwmc(decode, context_distribution, target_distribution, task, n_sample
     log_lhd = logsumexp(np.add(lmlhd_samples, log_importance_weights), axis=0) - np.log(n_samples)
     assert log_lhd.shape == (n_tsk,)
     return log_lhd, np.add(lmlhd_samples, log_importance_weights), lmlhd_samples, log_importance_weights
+
+
+def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, num_leapfrog_steps=10, step_size=0.01):
+    task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
+    assert task_x.ndim == 3
+    assert task_y.ndim == 3
+    assert isinstance(task_x, np.ndarray)
+    assert isinstance(task_y, np.ndarray)
+
+    task_x_torch = torch.from_numpy(task_x).float()
+    task_y_torch = torch.from_numpy(task_y).float()
+
+    log_prior = construct_log_prior(context_distribution, n_samples)
+    log_posterior = construct_log_posterior(decode, log_prior, task_x_torch, task_y_torch)
+    
+    forward_schedule = torch.linspace(0, 1, chain_length, device=device)
+
+    # initial state should have shape n_samples x n_task x d_z, last_agg_state has dimension n_task x d_z
+    mu_z, var_z = context_distribution
+    mu_z = mu_z.repeat(n_samples, 1)
+    var_z = var_z.repeat(n_samples, 1)
+
+    n_tsk = task_x.shape[0]
+    d_z = mu_z.shape[-1]
+
+    initial_state = torch.normal(mu_z, torch.sqrt(var_z))
+    assert initial_state.shape == (n_samples * n_tsk, d_z)
+
+    ll = differentiable_annealed_importance_sampling(
+        initial_state, 
+        log_posterior, 
+        log_prior, 
+        chain_length, 
+        step_size = step_size,
+    )
+    
+    return ll
