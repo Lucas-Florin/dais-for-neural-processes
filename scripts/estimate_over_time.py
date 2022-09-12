@@ -34,7 +34,7 @@ class MyExperiment(experiment.AbstractExperiment):
         for seed in seed_list:
             config["seed"] = seed
             logpath = os.path.dirname(os.path.abspath(__file__))
-            logpath = os.path.join(logpath, os.path.join("..", f"log_seed_{seed}"))
+            logpath = os.path.join(logpath, os.path.join("..", f"log_VI_seed_{seed}"))
             os.makedirs(logpath, exist_ok=True)
             config["logpath"] = logpath
             # generate NP model
@@ -89,7 +89,7 @@ def build_model(config):
         n_hidden_units=config["n_hidden_units"],
         decoder_output_scale=config["decoder_output_scale"],
         device=config["device"],
-        adam_lr=eval(config["adam_lr"]),
+        adam_lr=config["adam_lr"],
         batch_size=config["batch_size"],
         n_samples=config["n_samples"],
     )

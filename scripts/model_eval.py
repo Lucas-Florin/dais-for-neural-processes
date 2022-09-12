@@ -26,22 +26,26 @@ class MyExperiment(experiment.AbstractExperiment):
         config["d_y"] = benchmark_meta.d_y
 
         x_test, y_test = eval_neural_process.collate_benchmark(benchmark_test)
-        x_test = x_test[:config["n_task_meta"], :, :]
-        y_test = y_test[:config["n_task_meta"], :, :]
+        print(x_test.shape)
+        x_test = x_test[:config["n_task_test"], :, :]
+        y_test = y_test[:config["n_task_test"], :, :]
+        print(x_test.shape)
 
         n_samples = 1000
         n_tasks = x_test.shape[0]
 
         n_particles = 10
-        chain_length = 5
+        chain_length = 1000
 
-        seed_list = [12, 123, 1234, 12345, 123456]
+        #seed_list = [12, 123, 1234, 12345, 123456]
+        seed_list = [823]
+
         context_sizes = [0, 1, 2, 4, 5, 6, 8, 12, 16]
 
         for seed in seed_list:
             config["seed"] = seed
             logpath = os.path.dirname(os.path.abspath(__file__))
-            logpath = os.path.join(logpath, os.path.join("..", f"log_seed_{seed}"))
+            logpath = os.path.join(logpath, os.path.join("..", f"log_VI"))
             os.makedirs(logpath, exist_ok=True)
             config["logpath"] = logpath
             # generate NP model
@@ -61,34 +65,35 @@ class MyExperiment(experiment.AbstractExperiment):
             log_likelihood_probs_elbo_matrix = np.zeros((len(context_distributions), n_samples, n_tasks))
 
             for i, context_distribution in enumerate(context_distributions):
-                _, log_likelihood_probs_mc = lmlhd_mc(lambda x,z: eval_neural_process.np_decode(model, x, z), context_distribution, (x_test, y_test), n_samples = n_samples)
-                _, log_likelihood_probs_iwmc, _, _ = lmlhd_iwmc(lambda x,z: eval_neural_process.np_decode(model, x, z), context_distribution, (mu_z_target, var_z_target), (x_test, y_test), n_samples = n_samples)
+                #_, log_likelihood_probs_mc = lmlhd_mc(lambda x,z: eval_neural_process.np_decode(model, x, z), context_distribution, (x_test, y_test), n_samples = n_samples, batch_size = 32)
+                #_, log_likelihood_probs_iwmc, _, _ = lmlhd_iwmc(lambda x,z: eval_neural_process.np_decode(model, x, z), context_distribution, (mu_z_target, var_z_target), (x_test, y_test), n_samples = n_samples, batch_size=32)
                 _, log_likelihood_probs_ais = lmlhd_ais(lambda x,z: eval_neural_process.np_decode(model, x, z), context_distribution, (x_test, y_test), n_samples = n_particles, chain_length=chain_length, device=None)
                 _, log_likelihood_probs_elbo, _, _ = lmlhd_elbo(lambda x,z: eval_neural_process.np_decode(model, x, z), context_distribution, (mu_z_target, var_z_target), (x_test, y_test), n_samples = n_samples)
-                print(log_likelihood_probs_ais.shape)
-                print(log_likelihood_probs_elbo.shape)
+                #print(log_likelihood_probs_ais.shape)
+                #print(log_likelihood_probs_elbo.shape)
 
-            log_likelihood_probs_mc_matrix[i, :, :] = log_likelihood_probs_mc
-            log_likelihood_probs_iwmc_matrix[i, :, :] = log_likelihood_probs_iwmc
-            log_likelihood_probs_ais_matrix[i, :, :] = log_likelihood_probs_ais
-            log_likelihood_probs_elbo_matrix[i, :, :] = log_likelihood_probs_elbo
+                #log_likelihood_probs_mc_matrix[i, :, :] = log_likelihood_probs_mc
+                #log_likelihood_probs_iwmc_matrix[i, :, :] = log_likelihood_probs_iwmc
+                log_likelihood_probs_ais_matrix[i, :, :] = log_likelihood_probs_ais
+                log_likelihood_probs_elbo_matrix[i, :, :] = log_likelihood_probs_elbo
 
             print("Shape of log_likelihood_probs_mc_matrix: " + str(log_likelihood_probs_mc_matrix.shape))
             print("Shape of log_likelihood_probs_iwmc_matrix: " + str(log_likelihood_probs_iwmc_matrix.shape))
             print("Shape of log_likelihood_probs_ais_matrix: " + str(log_likelihood_probs_ais_matrix.shape))
             print("Shape of log_likelihood_probs_elbo_matrix: " + str(log_likelihood_probs_elbo_matrix.shape))
-
-            with open(f'log_likelihood_probs_mc_seed_{seed}.npy', 'wb') as f:
+            '''
+            with open(f'log_likelihood_probs_VI_256_mc_seed_{seed}.npy', 'wb') as f:
                 np.save(f, log_likelihood_probs_mc_matrix)
-
-            with open(f'log_likelihood_probs_iwmc_seed_{seed}.npy', 'wb') as f:
+            
+            with open(f'log_likelihood_probs_VI_256_iwmc_seed_{seed}.npy', 'wb') as f:
                 np.save(f, log_likelihood_probs_iwmc_matrix)
-
-            with open(f'log_likelihood_probs_ais_seed_{seed}.npy', 'wb') as f:
+            '''
+            with open(f'log_likelihood_probs_VI_256_ais_small_seed_{seed}.npy', 'wb') as f:
                 np.save(f, log_likelihood_probs_ais_matrix)
 
-            with open(f'log_likelihood_probs_elbo_seed_{seed}.npy', 'wb') as f:
+            with open(f'log_likelihood_probs_VI_256_elbo_seed_{seed}.npy', 'wb') as f:
                 np.save(f, log_likelihood_probs_elbo_matrix)
+
 
     def finalize(self, surrender: cw_error.ExperimentSurrender = None, crash: bool = False):
         pass
@@ -111,7 +116,7 @@ def build_model(config):
         n_hidden_units=config["n_hidden_units"],
         decoder_output_scale=config["decoder_output_scale"],
         device=config["device"],
-        adam_lr=eval(config["adam_lr"]),
+        adam_lr=config["adam_lr"],
         batch_size=config["batch_size"],
         n_samples=config["n_samples"],
     )

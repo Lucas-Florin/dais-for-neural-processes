@@ -48,7 +48,7 @@ params:
   seed_task_val: 1236
   seed_x_val: 2236
   seed_noise_val: 3236
-  n_task_test: 32
+  n_task_test: 256
   n_datapoints_per_task_test: 32
   seed_task_test: 1235
   seed_x_test: 2235

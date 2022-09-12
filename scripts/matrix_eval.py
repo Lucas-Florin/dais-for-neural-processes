@@ -12,7 +12,8 @@ def load_matrix(path):
     return np.load(path)
 
 def eval_matrix(matrix):
-    matrix = matrix[:, :10000, :]
+    print(matrix.shape)
+    matrix = matrix[:, :10000, :32]
     assert matrix.ndim == 3 # (n_context_sizes, n_samples, n_tasks)
     n_samples = matrix.shape[1]
 
