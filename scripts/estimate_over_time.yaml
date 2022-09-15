@@ -17,34 +17,34 @@ reps_in_parallel: 1
 
 params:
   model: "StandardNP"
-  benchmark: "Quadratic1D"
+  benchmark: "Sinusoid1D"
 
-  d_z: 16
+  d_z: 6
   aggregator_type: "BA"
-  loss_type: "MC"
+  loss_type: "VI"
   input_mlp_std_y: ""
   self_attention_type: "None"
   f_act: "relu"
   n_hidden_layers: 2
-  n_hidden_units: 64
+  n_hidden_units: 44
   latent_prior_scale: 1.0
   decoder_output_scale: 0.1
-  n_tasks_train: 2**20
+  n_tasks_train: 2**21
   validation_interval: 2**15
   device: "cuda"
-  adam_lr: 1e-4
+  adam_lr: 0.006786
   n_samples: 16
-  n_context: [1, 16]
+  n_context: [1, 15]
   seed: 1234
 
   data_noise_std: 0.1
-  n_task_meta: 32
-  n_datapoints_per_task_meta: 32
+  n_task_meta: 64
+  n_datapoints_per_task_meta: 16
   seed_task_meta: 1234
   seed_x_meta: 2234
   seed_noise_meta: 3234
   n_task_val: 16
-  n_datapoints_per_task_val: 32
+  n_datapoints_per_task_val: 16
   seed_task_val: 1236
   seed_x_val: 2236
   seed_noise_val: 3236

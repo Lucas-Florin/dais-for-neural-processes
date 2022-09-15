@@ -34,7 +34,7 @@ class MyExperiment(experiment.AbstractExperiment):
         for seed in seed_list:
             config["seed"] = seed
             logpath = os.path.dirname(os.path.abspath(__file__))
-            logpath = os.path.join(logpath, os.path.join("..", f"log_VI_seed_{seed}"))
+            logpath = os.path.join(logpath, os.path.join("..", f"log_Sinusoid1D_seed_{seed}"))
             os.makedirs(logpath, exist_ok=True)
             config["logpath"] = logpath
             # generate NP model
