@@ -103,17 +103,6 @@ wandb:
   project: NP_baseline
 
 ---
-name: baseline_hd
-
-wandb:
-  group: first_runs
-  project: NP_baseline
-
-params: 
-  eval_params:
-    n_mc_samples: 100000
-    batch_size: 1
----
 name: dais
 params: 
   model_params:
