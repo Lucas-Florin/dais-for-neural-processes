@@ -1,8 +1,12 @@
-import numpy as np
 import os
 import copy
 from pathlib import Path
+from collections.abc import Sequence
+
+import numpy as np
 from tqdm import tqdm
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 from sweep_work.create_sweep import create_sweep
 from sweep_work.sweep_logger import SweepLogger
@@ -91,6 +95,70 @@ def build_model(config, logpath):
     )
 
     return model
+
+
+def plot_examples(
+    np_model: NeuralProcess,
+    benchmark: MetaLearningBenchmark,
+    n_task_plot: int,
+    context_set_sizes: Sequence[int],
+    device=None,
+):
+    
+    # determine n_task
+    n_task_plot = min(n_task_plot, benchmark.n_task)
+    
+    fig = make_subplots(rows=len(context_set_sizes), cols=n_task_plot)
+
+    # evaluate predictions
+    n_samples = 50
+    x_min = benchmark.x_bounds[0, 0]
+    x_max = benchmark.x_bounds[0, 1]
+    x_plt_min = x_min - 0.1 * (x_max - x_min)
+    x_plt_max = x_max + 0.1 * (x_max - x_min)
+    x_plt = np.linspace(x_plt_min, x_plt_max, 128)
+    x_plt = np.reshape(x_plt, (-1, 1))
+
+    x_test = np.zeros((n_task_plot, benchmark.n_datapoints_per_task, benchmark.d_x))
+    y_test = np.zeros((n_task_plot, benchmark.n_datapoints_per_task, benchmark.d_y))
+    for k in range(0, n_task_plot):
+        task = benchmark.get_task_by_index(k)
+        x_test[k] = task.x
+        y_test[k] = task.y
+
+    # plot predictions
+    for i in range(len(context_set_sizes)):
+        cs = context_set_sizes[i]
+        np_model.adapt(x=x_test[:, :cs, :], y=y_test[:, :cs, :]) # adapt model on context set of size cs
+
+        mu_y, _ = np_model.predict(x=x_plt, n_samples=n_samples)
+        assert mu_y.shape == (n_task_plot, n_samples, x_plt.shape[0], benchmark.d_y)
+
+        for l in range(n_task_plot):
+            for s in range(n_samples):
+                fig.add_trace(go.Scatter(x=x_plt.flatten(), 
+                                        y=mu_y[l, s, :, :].flatten(), 
+                                        mode='lines', name='prediction',
+                                        legendgroup='prediction', showlegend=(s==0 and l==0 and i==len(context_set_sizes)-1),
+                                        marker={'color': 'blue', 'opacity': 0.1}), 
+                            row=i+1, col=l+1,)
+                
+            fig.add_trace(go.Scatter(x=x_test[l, cs:, :].flatten(), 
+                                     y=y_test[l, cs:, :].flatten(), 
+                                     mode='markers', name='test set',
+                                     legendgroup='test set', showlegend=(l==0 and i==len(context_set_sizes)-1),
+                                     marker={'color': 'green'}), 
+                          row=i+1, col=l+1,)
+            fig.add_trace(go.Scatter(x=x_test[l, :cs, :].flatten(), 
+                                     y=y_test[l, :cs, :].flatten(), 
+                                     mode='markers', name='context set',
+                                     legendgroup='context set', showlegend=(l==0 and i==len(context_set_sizes)-1),
+                                     marker={'color': 'red'}), 
+                          row=i+1, col=l+1,)
+            
+    return fig
+    
+
 
 class BaselineExperiment(experiment.AbstractExperiment):
     # ...
@@ -210,6 +278,18 @@ class BaselineExperiment(experiment.AbstractExperiment):
             for l in logger:
                 if type(l) is WandBLogger:
                     l.log_plot(context_size_list, dais_list, ["context_size", "DAIS objective"], 'dais_plot', 'DAIS estimator for LL')
+                    
+        if eval_params['show_examples']:
+            fig = plot_examples(
+                model,
+                self.benchmark_test,
+                eval_params['example_num_tasks'],
+                eval_params['example_context_set_sizes'],
+                device=model_params['device'],
+            )
+            result.update({
+                'examples': fig
+            })
         
         logger.process(result)
         

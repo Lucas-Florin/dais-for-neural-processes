@@ -62,6 +62,10 @@ params:
 
     context_sizes: [0, 1, 2, 4, 6, 8, 12, 16]
 
+    show_examples: True
+    example_context_set_sizes: [0, 4, 12]
+    example_num_tasks: 4
+
   benchmark_params:
     benchmark: "Quadratic1D"
     data_noise_std: 0.1

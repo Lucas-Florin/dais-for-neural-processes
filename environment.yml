@@ -15,6 +15,7 @@ dependencies:
   - tqdm
   - pyyaml
   - joblib
+  - plotly
   - pip
   - pip:
     - attrdict
