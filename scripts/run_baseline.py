@@ -92,7 +92,7 @@ def build_model(config, logpath):
 
     return model
 
-class MyExperiment(experiment.AbstractExperiment):
+class BaselineExperiment(experiment.AbstractExperiment):
     # ...
 
     def initialize(self, config: dict, rep: int, logger: cw_logging.LoggerArray) -> None:
@@ -112,12 +112,18 @@ class MyExperiment(experiment.AbstractExperiment):
 
         model = build_model(model_params, cw_config['_rep_log_path'])
         train_params = params["train_params"]
+        
+        def callback(n_meta_tasks_seen, np_model, metrics): 
+            if metrics is not None:
+                # logger.process(metrics | {'iter': n_meta_tasks_seen})
+                logger.process(metrics)
+        
         model.meta_train(
         benchmark_meta=self.benchmark_meta,
         benchmark_val=self.benchmark_val,
         n_tasks_train=eval(train_params["n_tasks_train"]),
         validation_interval=eval(train_params["validation_interval"]),
-        callback=None,
+        callback=callback,
         )
 
         # Evaluate
@@ -214,7 +220,7 @@ class MyExperiment(experiment.AbstractExperiment):
 
 def main_sweepwork():
     # Give the MyExperiment Class, not MyExperiment() Object!!
-    cw = cluster_work.ClusterWork(wrap_experiment(MyExperiment))
+    cw = cluster_work.ClusterWork(wrap_experiment(BaselineExperiment))
     #cw = cluster_work.ClusterWork(MyExperiment)
     # this next line is important in order to create a new sweep!
     create_sweep(cw)
@@ -228,7 +234,7 @@ def main_sweepwork():
 
 def main():
     # Give the MyExperiment Class, not MyExperiment() Object!!
-    cw = cluster_work.ClusterWork(MyExperiment)
+    cw = cluster_work.ClusterWork(BaselineExperiment)
 
     
     cw.add_logger(WandBLogger())
