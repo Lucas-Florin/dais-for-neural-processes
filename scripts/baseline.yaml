@@ -20,6 +20,7 @@ reps_per_job: 1
 reps_in_parallel: 1
 iterations: 1
 params:
+  copy_sweep_params: []
   model_params:
     seed: 1234
     d_z: 16
@@ -97,6 +98,8 @@ params:
   eval_params:
     use_ais: False
     use_dais: False
+    show_examples: True
+    mc_batch_size: 128
 
 wandb:
   group: first_runs
@@ -112,3 +115,41 @@ params:
 wandb:
   project: NP_baseline
   group: losses
+
+---
+name: first_sweep
+repetitions: 50
+
+params:
+  copy_sweep_params: ["adam_lr", "d_z", "n_hidden_units"]
+  eval_params:
+    use_ais: False
+    use_dais: False
+    show_examples: False
+    mc_batch_size: 128
+
+wandb:
+  group: hpo
+  job_type: sweep
+  project: NP_baseline
+  sweep_id: new
+  hp_combinations_per_agent: 10
+
+wandb_sweep:
+  name: first_sweep
+  metric: 
+    name: mc_objective
+    goal: maximize
+  method: bayes
+  parameters: 
+    adam_lr:
+      distribution: log_uniform_values
+      max: 0.01
+      min: 0.00001
+    d_z: 
+      min: 8
+      max: 32
+    n_hidden_units:
+      min: 8
+      max: 64
+

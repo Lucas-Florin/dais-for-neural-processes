@@ -159,6 +159,10 @@ def plot_examples(
     return fig
     
 
+def copy_sweep_params(source, destination, key_list):
+    for key in key_list:
+        destination[key] = source[key]
+
 
 class BaselineExperiment(experiment.AbstractExperiment):
     # ...
@@ -177,6 +181,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
         model_params["d_x"] = self.benchmark_meta.d_x
         model_params["d_y"] = self.benchmark_meta.d_y
         model_params["batch_size"] = self.benchmark_meta.n_task
+        copy_sweep_params(params, model_params, params['copy_sweep_params'])
 
         model = build_model(model_params, cw_config['_rep_log_path'])
         train_params = params["train_params"]
