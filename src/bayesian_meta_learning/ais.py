@@ -4,7 +4,6 @@ from typing import Optional
 from typing import Union
 
 import torch
-from tqdm import tqdm
 
 from bayesian_meta_learning import hmc
 from bayesian_meta_learning import utils
@@ -69,7 +68,7 @@ def ais_trajectory(
         #current_z = utils.safe_repeat(post_z, n_samples).to(device)
         raise NotImplementedError
 
-    for j, (t0, t1) in tqdm(enumerate(zip(schedule[:-1], schedule[1:]), 1)):
+    for j, (t0, t1) in (enumerate(zip(schedule[:-1], schedule[1:]), 1)):
         # update log importance weight
         log_int_1 = log_f_i(current_z, t0)
         log_int_2 = log_f_i(current_z, t1)
