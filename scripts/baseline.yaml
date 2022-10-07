@@ -20,7 +20,7 @@ reps_per_job: 1
 reps_in_parallel: 1
 iterations: 1
 params:
-  copy_sweep_params: []
+  copy_sweep_model_params: []
   model_params:
     seed: 1234
     d_z: 16
@@ -44,6 +44,7 @@ params:
     n_tasks_train: 2**17
     validation_interval: 2**15
 
+  copy_sweep_eval_params: []
   eval_params:
     use_mc: True
     mc_n_samples: 1000
@@ -152,4 +153,31 @@ wandb_sweep:
     n_hidden_units:
       min: 8
       max: 64
+
+---
+name: first_sweep_repeat
+repetitions: 1
+
+params:
+  copy_sweep_params: []
+  eval_params:
+    use_ais: False
+    use_dais: False
+    show_examples: True
+    mc_batch_size: 16
+    mc_n_samples: 10000
+  model_params:
+    d_z: 16
+    n_hidden_units: 64
+    adam_lr: 0.007
+
+list:
+  model_params:
+    seed: [1235, 1236, 1237, 1238, 1239]
+
+wandb:
+  group: first_multi_seed_2
+  job_type: multi_seed
+  project: NP_baseline
+  hp_combinations_per_agent: 1
 

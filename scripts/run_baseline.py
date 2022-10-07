@@ -181,7 +181,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
         model_params["d_x"] = self.benchmark_meta.d_x
         model_params["d_y"] = self.benchmark_meta.d_y
         model_params["batch_size"] = self.benchmark_meta.n_task
-        copy_sweep_params(params, model_params, params['copy_sweep_params'])
+        copy_sweep_params(params, model_params, params['copy_sweep_model_params'])
 
         model = build_model(model_params, cw_config['_rep_log_path'])
         train_params = params["train_params"]
@@ -201,6 +201,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
 
         # Evaluate
         eval_params = params["eval_params"]
+        copy_sweep_params(params, eval_params, params['copy_sweep_eval_params'])
         assert eval_params['use_mc'] or eval_params['use_ais']
         x_test, y_test = collate_benchmark(self.benchmark_test)
         context_size_list = eval_params["context_sizes"]
@@ -224,7 +225,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
                     lambda x,z: np_decode(model, x, z), 
                     (mu_z, var_z), 
                     (x_test, y_test), 
-                    n_samples=eval_params["ais_n_samples"],
+                    n_samples=eval_params['ais_n_samples'],
                     chain_length=eval_params['ais_chain_length'],
                     device=model_params['device'],
                     num_leapfrog_steps=eval_params['ais_n_hmc_steps'],
@@ -328,5 +329,5 @@ def main():
     cw.run()
 
 if __name__ == "__main__":
-    # main_sweepwork()
-    main()
+    main_sweepwork()
+    # main()
