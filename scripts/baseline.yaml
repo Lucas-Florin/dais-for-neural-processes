@@ -182,3 +182,48 @@ wandb:
   project: NP_baseline
   hp_combinations_per_agent: 1
 
+---
+name: ais_sweep
+repetitions: 50
+
+params:
+  copy_sweep_eval_params: [ais_step_size, ais_n_samples, ais_n_hmc_steps]
+  eval_params:
+    use_ais: True
+    use_mc: False
+    use_dais: False
+    show_examples: False
+    ais_total_compute: 10000
+    ais_chain_length: null
+  model_params:
+    d_z: 16
+    n_hidden_units: 64
+    adam_lr: 0.007
+
+wandb:
+  group: ais_sweep
+  job_type: sweep
+  project: NP_baseline
+  sweep_id: new
+  hp_combinations_per_agent: 3
+
+wandb_sweep:
+  name: ais_sweep
+  metric: 
+    name: ais_objective
+    goal: maximize
+  method: bayes
+  parameters: 
+    ais_step_size:
+      distribution: log_uniform_values
+      max: 0.1
+      min: 0.001
+    ais_n_samples: 
+      distribution: q_log_uniform_values
+      min: 1
+      max: 50
+    ais_n_hmc_steps:
+      distribution: q_log_uniform_values
+      min: 1
+      max: 50
+
