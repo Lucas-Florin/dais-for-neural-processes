@@ -162,7 +162,24 @@ def plot_examples(
 def copy_sweep_params(source, destination, key_list):
     for key in key_list:
         destination[key] = source[key]
+        
+        
+def complete_config_with_given_total(source, keys, total, mode='product', return_int=True):
+    if mode != 'product':
+        raise NotImplementedError
+    if total is None:
+        return
+    none_keys = [k for k in keys if source[k] is None]
+    if len(none_keys) == 0:
+        return
+    assert len(none_keys) == 1
+    new_value = total
+    for k in keys:
+        if k not in none_keys:
+            new_value /= source[k]
 
+    source[none_keys[0]] = int(new_value) if return_int else new_value
+    
 
 class BaselineExperiment(experiment.AbstractExperiment):
     # ...
@@ -221,6 +238,9 @@ class BaselineExperiment(experiment.AbstractExperiment):
                 )
                 mc_list.append(np.median(lmlhd_estimate_mc))
             if eval_params['use_ais']:
+                complete_config_with_given_total(eval_params, 
+                                                 ['ais_n_samples', 'ais_chain_length', 'ais_n_hmc_steps'], 
+                                                 eval_params['ais_total_compute'])
                 lmlhd_estimate_ais = lmlhd_ais(
                     lambda x,z: np_decode(model, x, z), 
                     (mu_z, var_z), 

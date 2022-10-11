@@ -54,6 +54,7 @@ params:
     ais_n_samples: 10
     ais_chain_length: 100
     ais_n_hmc_steps: 10
+    ais_total_compute: null
     ais_step_size: 0.01
 
     use_dais: False
