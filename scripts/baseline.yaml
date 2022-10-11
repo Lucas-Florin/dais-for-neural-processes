@@ -24,7 +24,7 @@ params:
   model_params:
     seed: 1234
     d_z: 16
-    n_context: [1, 32]
+    n_context: [1, 8]
     aggregator_type: "BA"
     loss_type: "MC"
     input_mlp_std_y: ""
@@ -41,8 +41,8 @@ params:
     dais_step_size: 0.08
 
   train_params:
-    n_tasks_train: 2**17
-    validation_interval: 2**15
+    n_tasks_train: 2**21
+    validation_interval: 2**17
 
   copy_sweep_eval_params: []
   eval_params:
@@ -72,18 +72,18 @@ params:
   benchmark_params:
     benchmark: "Quadratic1D"
     data_noise_std: 0.1
-    n_task_meta: 256
-    n_datapoints_per_task_meta: 64
+    n_task_meta: 64
+    n_datapoints_per_task_meta: 16
     seed_task_meta: 1234
     seed_x_meta: 2234
     seed_noise_meta: 3234
     n_task_val: 16
-    n_datapoints_per_task_val: 64
+    n_datapoints_per_task_val: 16
     seed_task_val: 1236
     seed_x_val: 2236
     seed_noise_val: 3236
     n_task_test: 256
-    n_datapoints_per_task_test: 64
+    n_datapoints_per_task_test: 16
     seed_task_test: 1235
     seed_x_test: 2235
     seed_noise_test: 3235
