@@ -116,7 +116,7 @@ def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=5
     log_prior = construct_log_prior(context_distribution, n_samples)
     log_posterior = construct_log_posterior(decode, log_prior, task_x_torch, task_y_torch)
     
-    forward_schedule = torch.linspace(0, 1, chain_length, device=device)
+    forward_schedule = torch.linspace(0, 1, chain_length + 1, device=device)
 
     # initial state should have shape n_samples x n_task x d_z, last_agg_state has dimension n_task x d_z
     mu_z, var_z = context_distribution
