@@ -217,7 +217,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
         )
 
         # Evaluate
-        eval_params = params["eval_params"]
+        eval_params = copy.deepcopy(params["eval_params"])
         copy_sweep_params(params, eval_params, params['copy_sweep_eval_params'])
         assert eval_params['use_mc'] or eval_params['use_ais']
         x_test, y_test = collate_benchmark(self.benchmark_test)
