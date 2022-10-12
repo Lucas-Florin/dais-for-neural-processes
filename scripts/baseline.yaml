@@ -35,7 +35,7 @@ params:
     latent_prior_scale: 1.0
     decoder_output_scale: 0.1
     device: "cpu"
-    adam_lr: 0.0001
+    adam_lr: 0.0002
     n_samples: 16
     dais_n_annealing_steps: 10
     dais_step_size: 0.08
@@ -66,7 +66,7 @@ params:
     context_sizes: [0, 1, 2, 4, 6, 8, 12, 16]
 
     show_examples: True
-    example_context_set_sizes: [0, 4, 12]
+    example_context_set_sizes: [0, 2, 8]
     example_num_tasks: 4
 
   benchmark_params:
@@ -123,7 +123,7 @@ name: first_sweep
 repetitions: 50
 
 params:
-  copy_sweep_params: ["adam_lr", "d_z", "n_hidden_units"]
+  copy_sweep_model_params: ["adam_lr", "d_z", "n_hidden_units"]
   eval_params:
     use_ais: False
     use_dais: False
@@ -131,7 +131,7 @@ params:
     mc_batch_size: 128
 
 wandb:
-  group: hpo
+  group: first_sweep
   job_type: sweep
   project: NP_baseline
   sweep_id: new
@@ -165,19 +165,18 @@ params:
     use_ais: False
     use_dais: False
     show_examples: True
+    # mc_batch_size: 128
+    # mc_n_samples: 1000
     mc_batch_size: 16
     mc_n_samples: 10000
-  model_params:
-    d_z: 16
-    n_hidden_units: 64
-    adam_lr: 0.007
 
-list:
+
+grid:
   model_params:
     seed: [1235, 1236, 1237, 1238, 1239]
 
 wandb:
-  group: first_multi_seed_2
+  group: first_multi_seed
   job_type: multi_seed
   project: NP_baseline
   hp_combinations_per_agent: 1
@@ -195,10 +194,6 @@ params:
     show_examples: False
     ais_total_compute: 10000
     ais_chain_length: null
-  model_params:
-    d_z: 16
-    n_hidden_units: 64
-    adam_lr: 0.007
 
 wandb:
   group: ais_sweep
