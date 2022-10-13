@@ -201,20 +201,23 @@ class BaselineExperiment(experiment.AbstractExperiment):
         copy_sweep_params(params, model_params, params['copy_sweep_model_params'])
 
         model = build_model(model_params, cw_config['_rep_log_path'])
-        train_params = params["train_params"]
+        train_params = copy.deepcopy(params["train_params"])
         
-        def callback(n_meta_tasks_seen, np_model, metrics): 
-            if metrics is not None:
-                # logger.process(metrics | {'iter': n_meta_tasks_seen})
-                logger.process(metrics)
-        
-        model.meta_train(
-        benchmark_meta=self.benchmark_meta,
-        benchmark_val=self.benchmark_val,
-        n_tasks_train=eval(train_params["n_tasks_train"]),
-        validation_interval=eval(train_params["validation_interval"]),
-        callback=callback,
-        )
+        if train_params['load_model']:
+            model.load_model(eval(train_params["n_tasks_train"]), train_params['load_model_path'])
+        else:
+            def callback(n_meta_tasks_seen, np_model, metrics): 
+                if metrics is not None:
+                    # logger.process(metrics | {'iter': n_meta_tasks_seen})
+                    logger.process(metrics)
+            
+            model.meta_train(
+            benchmark_meta=self.benchmark_meta,
+            benchmark_val=self.benchmark_val,
+            n_tasks_train=eval(train_params["n_tasks_train"]),
+            validation_interval=eval(train_params["validation_interval"]),
+            callback=callback,
+            )
 
         # Evaluate
         eval_params = copy.deepcopy(params["eval_params"])
@@ -318,6 +321,8 @@ class BaselineExperiment(experiment.AbstractExperiment):
             })
         
         logger.process(result)
+        if train_params['save_model']:
+            model.save_model()
         
     
     def finalize(self, surrender: cw_error.ExperimentSurrender = None, crash: bool = False):

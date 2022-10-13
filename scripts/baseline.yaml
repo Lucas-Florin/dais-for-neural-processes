@@ -43,12 +43,15 @@ params:
   train_params:
     n_tasks_train: 2**21
     validation_interval: 2**17
+    save_model: False
+    load_model: False
+    load_model_path: null
 
   copy_sweep_eval_params: []
   eval_params:
     use_mc: True
     mc_n_samples: 1000
-    mc_batch_size: null
+    mc_batch_size: 128
 
     use_ais: True
     ais_n_samples: 10
@@ -102,6 +105,8 @@ params:
     use_dais: False
     show_examples: True
     mc_batch_size: 128
+  train_params:
+    save_model: True
 
 wandb:
   group: first_runs
