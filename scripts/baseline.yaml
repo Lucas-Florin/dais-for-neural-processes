@@ -50,7 +50,7 @@ params:
   copy_sweep_eval_params: []
   eval_params:
     use_mc: True
-    mc_n_samples: 1000
+    mc_n_samples: 10000
     mc_batch_size: 128
 
     use_ais: True
@@ -86,7 +86,7 @@ params:
     seed_x_val: 2236
     seed_noise_val: 3236
     n_task_test: 256
-    n_datapoints_per_task_test: 16
+    n_datapoints_per_task_test: 64
     seed_task_test: 1235
     seed_x_test: 2235
     seed_noise_test: 3235
@@ -104,7 +104,6 @@ params:
     use_ais: False
     use_dais: False
     show_examples: True
-    mc_batch_size: 128
   train_params:
     save_model: True
 
