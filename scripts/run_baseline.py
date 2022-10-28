@@ -63,9 +63,7 @@ def np_decode(np_model, x, z):
     assert x.ndim == 3  # (n_tsk, n_tst, d_x)
     assert z.ndim == 4  # (n_tsk, n_ls, n_marg, d_z)
 
-    x = np_model._normalize_x(x)
     mu_y, std_y = np_model.decoder.decode(x, z) # decoder returns std!!
-    mu_y = np_model._denormalize_mu_y(mu_y)
 
     return mu_y, std_y
 
@@ -354,5 +352,5 @@ def main():
     cw.run()
 
 if __name__ == "__main__":
-    main_sweepwork()
-    # main()
+    # main_sweepwork()
+    main()
