@@ -198,6 +198,9 @@ params:
     show_examples: False
     ais_total_compute: 10000
     ais_chain_length: null
+  train_params:
+    load_model: True
+    load_model_path: "./experiments/baseline/log/rep_00"
 
 wandb:
   group: ais_sweep
