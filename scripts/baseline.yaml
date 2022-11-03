@@ -51,7 +51,7 @@ params:
   eval_params:
     use_mc: True
     mc_n_samples: 10000
-    mc_batch_size: 128
+    mc_batch_size: 16
 
     use_ais: True
     ais_n_samples: 10
@@ -103,7 +103,6 @@ params:
   eval_params:
     use_ais: False
     use_dais: False
-    show_examples: True
   train_params:
     save_model: True
 
@@ -133,13 +132,14 @@ params:
     use_dais: False
     show_examples: False
     mc_batch_size: 128
+    mc_n_samples: 1000
 
 wandb:
   group: first_sweep
   job_type: sweep
   project: NP_baseline
   sweep_id: new
-  hp_combinations_per_agent: 10
+  hp_combinations_per_agent: 3
 
 wandb_sweep:
   name: first_sweep
@@ -169,8 +169,6 @@ params:
     use_ais: False
     use_dais: False
     show_examples: True
-    # mc_batch_size: 128
-    # mc_n_samples: 1000
     mc_batch_size: 16
     mc_n_samples: 10000
 
