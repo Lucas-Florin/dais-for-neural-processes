@@ -90,6 +90,7 @@ def build_model(config, logpath):
         n_samples=config["n_samples"],
         n_annealing_steps=config["dais_n_annealing_steps"],
         dais_step_size=config["dais_step_size"],
+        dais_partial=config["dais_partial"],
     )
 
     return model
