@@ -91,6 +91,7 @@ def build_model(config, logpath):
         n_annealing_steps=config["dais_n_annealing_steps"],
         dais_step_size=config["dais_step_size"],
         dais_partial=config["dais_partial"],
+        dais_schedule=config["dais_schedule"],
     )
 
     return model

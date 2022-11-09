@@ -40,6 +40,7 @@ params:
     dais_n_annealing_steps: 10
     dais_step_size: 0.08
     dais_partial: True
+    dais_schedule: 'linear'
 
   train_params:
     n_tasks_train: 2**21
