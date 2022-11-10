@@ -55,7 +55,7 @@ params:
     mc_n_samples: 10000
     mc_batch_size: 16
 
-    use_ais: True
+    use_ais: False
     ais_n_samples: 10
     ais_chain_length: 100
     ais_n_hmc_steps: 10
@@ -64,7 +64,7 @@ params:
 
     use_dais: False
     dais_n_samples: 10
-    dais_chain_length: 100
+    dais_chain_length: 1000
     # dais_n_hmc_steps: 10
     dais_step_size: 0.01
 
@@ -102,11 +102,51 @@ wandb:
 name: baseline
 
 params:
+  model_params:
+    n_context: [1, 15]
   eval_params:
     use_ais: False
-    use_dais: False
   train_params:
     save_model: True
+
+wandb:
+  group: first_runs
+  project: NP_baseline
+
+---
+name: baseline_linesine
+
+params:
+  eval_params:
+    use_ais: True
+
+  train_params:
+
+    save_model: True
+  model_params:
+    loss_type: MC
+    d_z: 16
+    n_hidden_units: 64
+    adam_lr: 0.0002
+    n_context: [1, 15]
+  benchmark_params:
+    benchmark: "LineSine1D"
+
+wandb:
+  group: first_runs
+  project: NP_baseline
+
+---
+name: baseline_load
+
+params:
+  eval_params:
+    use_ais: True
+    use_dais: False
+    use_mc: True
+  train_params:
+    load_model: True
+    load_model_path: "./experiments/baseline/log/rep_00"
 
 wandb:
   group: first_runs
@@ -119,9 +159,13 @@ params:
     loss_type: DAIS
   eval_params: 
     use_dais: False
+    use_ais: False
+  train_params:
+    save_model: True
+
 wandb:
+  group: first_runs
   project: NP_baseline
-  group: losses
 
 ---
 name: first_sweep
