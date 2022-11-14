@@ -222,28 +222,28 @@ def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=
     task_x_torch = torch.from_numpy(task_x).float()
     task_y_torch = torch.from_numpy(task_y).float()
 
-    log_prior = construct_log_prior(context_distribution, n_samples)
-    log_posterior = construct_log_posterior(decode, log_prior, task_x_torch, task_y_torch)
-    
     forward_schedule = torch.linspace(0, 1, chain_length, device=device)
 
     # initial state should have shape n_samples x n_task x d_z, last_agg_state has dimension n_task x d_z
     mu_z, var_z = context_distribution
-    mu_z = mu_z.repeat(n_samples, 1)
-    var_z = var_z.repeat(n_samples, 1)
+    mu_z = mu_z.repeat(n_samples, 1, 1)
+    var_z = var_z.repeat(n_samples, 1, 1)
 
     n_tsk = task_x.shape[0]
     d_z = mu_z.shape[-1]
 
+    log_prior = construct_log_prior(mu_z, var_z)
+    log_posterior = construct_log_posterior(decode, log_prior, task_x_torch, task_y_torch)
+    
     initial_state = torch.normal(mu_z, torch.sqrt(var_z))
-    assert initial_state.shape == (n_samples * n_tsk, d_z)
+    assert initial_state.shape == (n_samples, n_tsk, d_z)
 
-    ll = differentiable_annealed_importance_sampling(
+    ll, _ = differentiable_annealed_importance_sampling(
         initial_state, 
         log_posterior, 
         log_prior, 
         chain_length, 
         step_size = step_size,
     )
-    
+    ll = torch.logsumexp(ll, dim=0) - torch.log(torch.tensor(n_samples))
     return ll

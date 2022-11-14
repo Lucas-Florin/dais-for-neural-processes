@@ -266,7 +266,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
                     # num_leapfrog_steps=eval_params['dais_n_hmc_steps'],
                     step_size=eval_params['dais_step_size']
                 )
-                dais_list.append(np.median(lmlhd_estimate_dais))
+                dais_list.append(np.median(lmlhd_estimate_dais.detach().numpy()))
         result = dict()
         if eval_params['use_mc']:
             mc_objective = np.mean(mc_list)
@@ -299,10 +299,10 @@ class BaselineExperiment(experiment.AbstractExperiment):
             dais_objective = np.mean(dais_list)
             print(f'DAIS Objective list: ')
             print(dais_list)
-            print("AIS Objective: " + str(dais_objective))
+            print("DAIS Objective: " + str(dais_objective))
             result.update({
-                "ais_objective": dais_objective,
-                "ais_objective_list": dais_list,
+                "dais_objective": dais_objective,
+                "dais_objective_list": dais_list,
             })
             for l in logger:
                 if type(l) is WandBLogger:
