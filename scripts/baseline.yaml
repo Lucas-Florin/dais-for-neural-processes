@@ -173,6 +173,30 @@ wandb:
   project: NP_baseline
 
 ---
+name: dais_linesine
+params: 
+  benchmark_params:
+    benchmark: "LineSine1D"
+  model_params:
+    loss_type: DAIS
+    adam_lr: 0.003093
+    d_z: 10
+    dais_n_annealing_steps: 3
+    dais_partial: false
+    dais_schedule: 'curve'
+    dais_step_size: 0.003988
+    n_hidden_units: 43
+  eval_params: 
+    use_dais: False
+    use_ais: True
+  train_params:
+    save_model: True
+
+wandb:
+  group: first_runs
+  project: NP_baseline
+
+---
 name: first_sweep
 repetitions: 50
 
@@ -215,13 +239,8 @@ name: first_sweep_repeat
 repetitions: 1
 
 params:
-  copy_sweep_params: []
   eval_params:
     use_ais: False
-    use_dais: False
-    show_examples: True
-    mc_batch_size: 16
-    mc_n_samples: 10000
 
 list:
   model_params:
