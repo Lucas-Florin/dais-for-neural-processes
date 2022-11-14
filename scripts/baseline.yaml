@@ -23,7 +23,7 @@ params:
   copy_sweep_model_params: []
   model_params:
     seed: 1234
-    d_z: 25
+    d_z: 29
     n_context: [1, 15]
     aggregator_type: "BA"
     loss_type: "MC"
@@ -31,11 +31,11 @@ params:
     self_attention_type: "None"
     f_act: "relu"
     n_hidden_layers: 2
-    n_hidden_units: 39
+    n_hidden_units: 26
     latent_prior_scale: 1.0
     decoder_output_scale: 0.1
     device: "cpu"
-    adam_lr: 0.0006791
+    adam_lr: 0.0001199
     n_samples: 16
     dais_n_annealing_steps: 10
     dais_step_size: 0.08
@@ -102,8 +102,6 @@ wandb:
 name: baseline
 
 params:
-  model_params:
-    n_context: [1, 15]
   eval_params:
     use_ais: False
   train_params:
