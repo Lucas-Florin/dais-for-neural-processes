@@ -127,6 +127,7 @@ params:
     n_hidden_units: 56
     adam_lr: 0.00561
     n_context: [1, 15]
+    seed: 1239
   benchmark_params:
     benchmark: "LineSine1D"
 
@@ -186,6 +187,7 @@ params:
     dais_schedule: 'curve'
     dais_step_size: 0.003988
     n_hidden_units: 43
+    seed: 1236
   eval_params: 
     use_dais: False
     use_ais: True
