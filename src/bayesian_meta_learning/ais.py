@@ -6,7 +6,6 @@ from typing import Union
 import torch
 
 from bayesian_meta_learning import hmc
-from bayesian_meta_learning import utils
 
 import logging
 
@@ -50,15 +49,15 @@ def ais_trajectory(
             f_i = p(z)^(1-t) p(x,z)^(t) = p(z) p(x|z)^t
         =>  log f_i = log p(z) + t * log p(x|z)
         """
-        proposal = proposal_log_prob_fn(z).mul_(1 - t)
-        target = target_log_prob_fn(z).mul_(t)
+        proposal = proposal_log_prob_fn(z) * (1 - t)
+        target = target_log_prob_fn(z) * (t)
         return proposal + target
 
-    B = initial_state.shape[0]
+    B = initial_state.shape[:-1]
 
-    epsilon = torch.full(size=(B,), device=device, fill_value=initial_step_size)
-    accept_hist = torch.zeros(size=(B,), device=device)
-    logw = torch.zeros(size=(B,), device=device)
+    epsilon = torch.full(size=B, device=device, fill_value=initial_step_size)
+    accept_hist = torch.zeros(size=B, device=device)
+    logw = torch.zeros(size=B, device=device)
 
     # initial sample of z
     if forward:
@@ -81,13 +80,14 @@ def ais_trajectory(
         def grad_U(z):
             z = z.clone().requires_grad_(True)
             grad, = torch.autograd.grad(U(z).sum(), z)
-            max_ = B * initial_state[0].size()[-1] * 100. # last dimension of mu_z
+            max_ = torch.prod(torch.tensor(initial_state.shape)) * 100. # last dimension of mu_z
             grad = torch.clamp(grad, -max_, max_)
             return grad
 
         def normalized_kinetic(v):
             zeros = torch.zeros_like(v)
-            return -utils.log_normal(v, zeros, zeros)
+            ones = torch.ones_like(v)
+            return - torch.distributions.Normal(zeros, ones).log_prob(v).sum(dim=-1)
 
         # resample velocity
         current_v = torch.randn_like(current_z)
@@ -105,7 +105,7 @@ def ais_trajectory(
             K=normalized_kinetic,
         )
 
-    logw = utils.logmeanexp(logw.view(n_samples, -1).transpose(0, 1))
+    logw = torch.logsumexp(logw, dim=0) - torch.log(torch.tensor(n_samples))
 
     if not forward:
         logw = -logw

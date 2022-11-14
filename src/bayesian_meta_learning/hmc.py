@@ -24,7 +24,7 @@ def hmc_trajectory(current_z: torch.Tensor,
     Returns:
         proposed state z and velocity v after the leap-frog steps
     """
-    epsilon = epsilon.view(-1, 1)
+    epsilon = epsilon[:, :, None]
     z = current_z
     v = current_v - .5 * epsilon * grad_U(z)
 
@@ -78,7 +78,7 @@ def accept_reject(current_z: torch.Tensor,
 
     prob = torch.clamp_max(torch.exp(current_Hamil - propose_Hamil), 1.)
     accept = torch.gt(prob, torch.rand_like(prob))
-    z = accept.view(-1, 1) * z + ~accept.view(-1, 1) * current_z
+    z = accept[..., None] * z + ~accept[..., None] * current_z
 
     accept_hist.add_(accept)
     criteria = torch.gt(accept_hist / hist_len, acceptance_threshold)
