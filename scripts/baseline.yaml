@@ -155,9 +155,16 @@ name: dais
 params: 
   model_params:
     loss_type: DAIS
+    adam_lr: 0.00008259
+    d_z: 28
+    dais_n_annealing_steps: 6
+    dais_partial: true
+    dais_schedule: 'curve'
+    dais_step_size: 0.003629
+    n_hidden_units: 29
   eval_params: 
     use_dais: False
-    use_ais: False
+    use_ais: True
   train_params:
     save_model: True
 
