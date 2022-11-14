@@ -24,7 +24,7 @@ params:
   model_params:
     seed: 1234
     d_z: 25
-    n_context: [1, 8]
+    n_context: [1, 15]
     aggregator_type: "BA"
     loss_type: "MC"
     input_mlp_std_y: ""
