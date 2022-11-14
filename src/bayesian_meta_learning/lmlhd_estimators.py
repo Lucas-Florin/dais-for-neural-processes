@@ -212,38 +212,47 @@ def lmlhd_iwmc(decode, context_distribution, target_distribution, task, n_sample
     return log_lhd, np.add(lmlhd_samples, log_importance_weights), lmlhd_samples, log_importance_weights
 
 
-def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, num_leapfrog_steps=10, step_size=0.01):
+def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, num_leapfrog_steps=10, step_size=0.01, batch_size=None):
     task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
     assert task_x.ndim == 3
     assert task_y.ndim == 3
     assert isinstance(task_x, np.ndarray)
     assert isinstance(task_y, np.ndarray)
 
-    task_x_torch = torch.from_numpy(task_x).float()
-    task_y_torch = torch.from_numpy(task_y).float()
+    task_x = torch.from_numpy(task_x).float()
+    task_y = torch.from_numpy(task_y).float()
 
     forward_schedule = torch.linspace(0, 1, chain_length, device=device)
-
-    # initial state should have shape n_samples x n_task x d_z, last_agg_state has dimension n_task x d_z
     mu_z, var_z = context_distribution
-    mu_z = mu_z.repeat(n_samples, 1, 1)
-    var_z = var_z.repeat(n_samples, 1, 1)
-
     n_tsk = task_x.shape[0]
     d_z = mu_z.shape[-1]
-
-    log_prior = construct_log_prior(mu_z, var_z)
-    log_posterior = construct_log_posterior(decode, log_prior, task_x_torch, task_y_torch)
     
-    initial_state = torch.normal(mu_z, torch.sqrt(var_z))
-    assert initial_state.shape == (n_samples, n_tsk, d_z)
+    batch_size = n_tsk if batch_size is None else batch_size
+    lmlhd_list = list()    
+    for mu_z_batch, var_z_batch, task_x_batch, task_y_batch in get_task_batch_iterator(mu_z, var_z, task_x, task_y, batch_size=batch_size):
 
-    ll, _ = differentiable_annealed_importance_sampling(
-        initial_state, 
-        log_posterior, 
-        log_prior, 
-        chain_length, 
-        step_size = step_size,
-    )
-    ll = torch.logsumexp(ll, dim=0) - torch.log(torch.tensor(n_samples))
-    return ll
+        # initial state should have shape n_samples x n_task x d_z, last_agg_state has dimension n_task x d_z
+        mu_z_batch = mu_z_batch.repeat(n_samples, 1, 1)
+        var_z_batch = var_z_batch.repeat(n_samples, 1, 1)
+
+
+        log_prior = construct_log_prior(mu_z_batch, var_z_batch)
+        log_posterior = construct_log_posterior(decode, log_prior, task_x_batch, task_y_batch)
+        
+        initial_state = torch.normal(mu_z_batch, torch.sqrt(var_z_batch))
+        assert initial_state.shape == (n_samples, batch_size, d_z)
+
+        ll, _ = differentiable_annealed_importance_sampling(
+            initial_state, 
+            log_posterior, 
+            log_prior, 
+            chain_length, 
+            step_size = step_size,
+        )
+        ll = torch.logsumexp(ll, dim=0) - torch.log(torch.tensor(n_samples))
+        lmlhd_list.append(ll.detach())
+    
+    lmlhd = torch.cat(lmlhd_list)
+    assert lmlhd.shape == (n_tsk,) # check output
+
+    return lmlhd

@@ -67,6 +67,7 @@ params:
     dais_chain_length: 1000
     # dais_n_hmc_steps: 10
     dais_step_size: 0.01
+    dais_batch_size: 2
 
     context_sizes: [0, 1, 2, 4, 6, 8, 12, 16]
 
