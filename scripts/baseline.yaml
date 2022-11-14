@@ -268,18 +268,16 @@ wandb_sweep:
   metric: 
     name: ais_objective
     goal: maximize
-  method: bayes
+  method: grid
   parameters: 
     ais_step_size:
-      distribution: log_uniform_values
-      max: 0.1
-      min: 0.001
+      values: [0.1, 0.03, 0.01, 0.003, 0.001]
     ais_n_samples: 
-      distribution: q_log_uniform_values
-      min: 1
-      max: 50
+      values: [1, 2, 5, 11, 25, 50]
     ais_n_hmc_steps:
-      distribution: q_log_uniform_values
+      values: [1, 2, 5, 11, 25, 50]
+
+
       min: 1
       max: 50
 
