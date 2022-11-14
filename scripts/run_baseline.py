@@ -102,13 +102,30 @@ def plot_examples(
     benchmark: MetaLearningBenchmark,
     n_task_plot: int,
     context_set_sizes: Sequence[int],
+    mc_task_list: None,
+    ais_task_list: None,
+    dais_task_list: None,
     device=None,
 ):
     
     # determine n_task
     n_task_plot = min(n_task_plot, benchmark.n_task)
+    subplot_titles = list()
+    for cs in context_set_sizes:
+        for t in range(n_task_plot):
+            title = ''
+            for task_list, name in zip((mc_task_list, ais_task_list, dais_task_list), ('MC', 'AIS', 'DAIS')):
+                if task_list is not None:
+                    assert len(task_list) > 0
+                    ml = task_list[cs][t]
+                    title += f'{name}: {ml:.2f}; '
+            subplot_titles.append(title)
     
-    fig = make_subplots(rows=len(context_set_sizes), cols=n_task_plot)
+    fig = make_subplots(
+        rows=len(context_set_sizes), 
+        cols=n_task_plot,
+        subplot_titles=subplot_titles
+    )
 
     # evaluate predictions
     n_samples = 50
@@ -226,8 +243,11 @@ class BaselineExperiment(experiment.AbstractExperiment):
         x_test, y_test = collate_benchmark(self.benchmark_test)
         context_size_list = eval_params["context_sizes"]
         mc_list = list()
+        mc_tasks_list = dict()
         ais_list = list()
+        ais_tasks_list = dict()
         dais_list = list()
+        dais_tasks_list = dict()        
         for cs in tqdm(context_size_list):
             model.adapt(x = x_test[:, :cs, :], y = y_test[:, :cs, :])
             mu_z, var_z = model.aggregator.last_agg_state
@@ -239,6 +259,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
                     eval_params["mc_n_samples"],
                     batch_size=eval_params["mc_batch_size"],
                 )
+                mc_tasks_list[cs] = lmlhd_estimate_mc
                 mc_list.append(np.median(lmlhd_estimate_mc))
             if eval_params['use_ais']:
                 complete_config_with_given_total(eval_params, 
@@ -254,7 +275,8 @@ class BaselineExperiment(experiment.AbstractExperiment):
                     num_leapfrog_steps=eval_params['ais_n_hmc_steps'],
                     step_size=eval_params['ais_step_size']
                 )
-                ais_list.append(np.median(lmlhd_estimate_ais))
+                ais_tasks_list[cs] = (lmlhd_estimate_ais.detach().numpy())
+                ais_list.append(np.median(lmlhd_estimate_ais.detach().numpy()))
             if eval_params['use_dais']:
                 lmlhd_estimate_dais = lmlhd_dais(
                     lambda x,z: np_decode(model, x, z), 
@@ -266,7 +288,8 @@ class BaselineExperiment(experiment.AbstractExperiment):
                     # num_leapfrog_steps=eval_params['dais_n_hmc_steps'],
                     step_size=eval_params['dais_step_size']
                 )
-                dais_list.append(np.median(lmlhd_estimate_dais))
+                dais_tasks_list[cs] = (lmlhd_estimate_dais.detach().numpy())
+                dais_list.append(np.median(lmlhd_estimate_dais.detach().numpy()))
         result = dict()
         if eval_params['use_mc']:
             mc_objective = np.mean(mc_list)
@@ -314,6 +337,9 @@ class BaselineExperiment(experiment.AbstractExperiment):
                 self.benchmark_test,
                 eval_params['example_num_tasks'],
                 eval_params['example_context_set_sizes'],
+                mc_task_list=None if len(mc_tasks_list) == 0 else mc_tasks_list,
+                ais_task_list=None if len(ais_tasks_list) == 0 else ais_tasks_list,
+                dais_task_list=None if len(dais_tasks_list) == 0 else dais_tasks_list,
                 device=model_params['device'],
             )
             result.update({
