@@ -278,6 +278,92 @@ wandb_sweep:
       values: [1, 2, 5, 11, 25, 50]
 
 
+---
+name: dais_sweep
+repetitions: 40
+
+params:
+  copy_sweep_model_params: ["adam_lr", "d_z", "n_hidden_units", "dais_step_size", "dais_n_annealing_steps", "dais_partial", "dais_schedule"]
+  model_params:
+    loss_type: DAIS
+  benchmark_params:
+    benchmark: "LineSine1D"
+  eval_params:
+    use_ais: False
+    use_dais: False
+    show_examples: False
+    mc_batch_size: 128
+    mc_n_samples: 1000
+
+wandb:
+  group: dais_sweep_linesine
+  job_type: sweep
+  project: NP_baseline
+  sweep_id: new
+  hp_combinations_per_agent: 6
+
+wandb_sweep:
+  name: dais_sweep_linesine
+  metric: 
+    name: mc_objective
+    goal: maximize
+  method: bayes
+  parameters: 
+    adam_lr:
+      distribution: log_uniform_values
+      max: 0.01
+      min: 0.00001
+    dais_step_size:
+      distribution: log_uniform_values
+      max: 2.4
+      min: 0.0024
+    dais_n_annealing_steps:
       min: 1
-      max: 50
+      max: 10
+    d_z: 
+      min: 8
+      max: 32
+    n_hidden_units:
+      min: 8
+      max: 64
+    dais_partial:
+      distribution: categorical
+      values: [True, False]
+    dais_schedule:
+      distribution: categorical
+      values: ['linear', 'curve']
+    
+
+---
+name: dais_sweep_repeat
+repetitions: 1
+
+params:
+  model_params:
+    loss_type: DAIS
+  benchmark_params:
+    benchmark: "LineSine1D"
+  eval_params:
+    use_ais: False
+
+list:
+  model_params:
+    adam_lr: [0.003093, 0.0055, 0.007864, 0.009881, 0.009453]
+    d_z: [10, 9, 8, 10, 9]
+    n_hidden_units: [43, 52, 51, 55, 43]
+    dais_step_size: [0.003988, 0.002448, 0.003622, 0.003592, 0.002914]
+    dais_n_annealing_steps: [3, 5, 2, 1, 1]
+    dais_partial: [false, false, true, true, false]
+    dais_schedule: [curve, linear, linear, linear, linear]
+
+grid:
+  model_params:
+    seed: [1235, 1236, 1237, 1238, 1239]
+
+wandb:
+  group: dais_multi_seed_linesine
+  job_type: multi_seed
+  project: NP_baseline
+  hp_combinations_per_agent: 1
+    
 
