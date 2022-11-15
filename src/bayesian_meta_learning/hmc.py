@@ -50,7 +50,9 @@ def accept_reject(current_z: torch.Tensor,
                   K: Callable,
                   max_step_size: Optional[float] = 0.5,
                   min_step_size: Optional[float] = 1e-4,
-                  acceptance_threshold: Optional[float] = 0.65):
+                  acceptance_threshold: Optional[float] = 0.65,
+                  rng: torch.Generator = None,
+                  ):
     """Accept/reject based on Hamiltonians for current and propose.
 
     Args:
@@ -77,7 +79,7 @@ def accept_reject(current_z: torch.Tensor,
     propose_Hamil = K(v) + U(z)
 
     prob = torch.clamp_max(torch.exp(current_Hamil - propose_Hamil), 1.)
-    accept = torch.gt(prob, torch.rand_like(prob))
+    accept = torch.gt(prob, torch.rand(prob.shape, generator=rng))
     z = accept.view(-1, 1) * z + ~accept.view(-1, 1) * current_z
 
     accept_hist.add_(accept)

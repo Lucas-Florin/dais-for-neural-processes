@@ -258,6 +258,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
                     (x_test, y_test), 
                     eval_params["mc_n_samples"],
                     batch_size=eval_params["mc_batch_size"],
+                    seed=eval_params['mc_seed'],
                 )
                 mc_tasks_list[cs] = lmlhd_estimate_mc
                 mc_list.append(np.median(lmlhd_estimate_mc))
@@ -273,7 +274,8 @@ class BaselineExperiment(experiment.AbstractExperiment):
                     chain_length=eval_params['ais_chain_length'],
                     device=model_params['device'],
                     num_leapfrog_steps=eval_params['ais_n_hmc_steps'],
-                    step_size=eval_params['ais_step_size']
+                    step_size=eval_params['ais_step_size'],
+                    seed=eval_params['ais_seed'],
                 )
                 ais_tasks_list[cs] = (lmlhd_estimate_ais.detach().numpy())
                 ais_list.append(np.median(lmlhd_estimate_ais.detach().numpy()))
@@ -286,7 +288,8 @@ class BaselineExperiment(experiment.AbstractExperiment):
                     chain_length=eval_params['dais_chain_length'],
                     device=model_params['device'],
                     # num_leapfrog_steps=eval_params['dais_n_hmc_steps'],
-                    step_size=eval_params['dais_step_size']
+                    step_size=eval_params['dais_step_size'],
+                    seed=eval_params['dais_seed'],
                 )
                 dais_tasks_list[cs] = (lmlhd_estimate_dais.detach().numpy())
                 dais_list.append(np.median(lmlhd_estimate_dais.detach().numpy()))

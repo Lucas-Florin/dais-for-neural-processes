@@ -54,6 +54,7 @@ params:
     use_mc: True
     mc_n_samples: 10000
     mc_batch_size: 16
+    mc_seed: 4783
 
     use_ais: False
     ais_n_samples: 10
@@ -61,12 +62,14 @@ params:
     ais_n_hmc_steps: 10
     ais_total_compute: null
     ais_step_size: 0.01
+    ais_seed: 8465
 
     use_dais: False
     dais_n_samples: 10
     dais_chain_length: 1000
     # dais_n_hmc_steps: 10
     dais_step_size: 0.01
+    dais_seed: 2357
 
     context_sizes: [0, 1, 2, 4, 6, 8, 12, 16]
 
