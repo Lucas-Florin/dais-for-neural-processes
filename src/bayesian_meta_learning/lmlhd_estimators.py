@@ -240,7 +240,7 @@ def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=
         log_posterior = construct_log_posterior(decode, log_prior, task_x_batch, task_y_batch)
         
         initial_state = torch.normal(mu_z_batch, torch.sqrt(var_z_batch))
-        assert initial_state.shape == (n_samples, batch_size, d_z)
+        # assert initial_state.shape == (n_samples, batch_size, d_z)
 
         ll, _ = differentiable_annealed_importance_sampling(
             initial_state, 
