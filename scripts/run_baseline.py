@@ -266,6 +266,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
                     # num_leapfrog_steps=eval_params['dais_n_hmc_steps'],
                     step_size=eval_params['dais_step_size'],
                     batch_size=eval_params['dais_batch_size'],
+                    clip_grad=eval_params['dais_clip_grad']
                 )
                 dais_list.append(np.median(lmlhd_estimate_dais.detach().numpy()))
         result = dict()

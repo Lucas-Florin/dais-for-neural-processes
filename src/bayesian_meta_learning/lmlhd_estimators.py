@@ -212,7 +212,8 @@ def lmlhd_iwmc(decode, context_distribution, target_distribution, task, n_sample
     return log_lhd, np.add(lmlhd_samples, log_importance_weights), lmlhd_samples, log_importance_weights
 
 
-def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, num_leapfrog_steps=10, step_size=0.01, batch_size=None):
+def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, 
+               num_leapfrog_steps=10, step_size=0.01, batch_size=None, clip_grad=1.0):
     task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
     assert task_x.ndim == 3
     assert task_y.ndim == 3
@@ -248,7 +249,9 @@ def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=
             log_prior, 
             chain_length, 
             step_size = step_size,
+            clip_grad=clip_grad,
         )
+        ll = ll.detach()
         ll = torch.logsumexp(ll, dim=0) - torch.log(torch.tensor(n_samples))
         lmlhd_list.append(ll.detach())
     
