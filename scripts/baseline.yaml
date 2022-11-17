@@ -122,7 +122,8 @@ params:
     use_ais: True
 
   train_params:
-
+    load_model: False
+    load_model_path: "./experiments/baseline_linesine/log/rep_00"
     save_model: True
   model_params:
     loss_type: MC
@@ -131,6 +132,34 @@ params:
     adam_lr: 0.00561
     n_context: [1, 15]
     seed: 1239
+  benchmark_params:
+    benchmark: "LineSine1D"
+
+wandb:
+  group: first_runs
+  project: NP_baseline
+
+---
+name: baseline_linesine_no_empty_cs
+
+params:
+  eval_params:
+    use_ais: True
+    use_dais: False
+    use_mc: True
+    context_sizes: [1, 2, 4, 6, 8, 12, 16]
+    example_context_set_sizes: [1, 2, 8]
+  train_params:
+    load_model: False
+    load_model_path: "./experiments/baseline_linesine_no_empty_cs/log/rep_00"
+    save_model: True
+  model_params:
+    loss_type: MC
+    d_z: 19
+    n_hidden_units: 64
+    adam_lr: 0.000968
+    n_context: [1, 15]
+    seed: 1238
   benchmark_params:
     benchmark: "LineSine1D"
 
@@ -190,12 +219,15 @@ params:
     dais_schedule: 'curve'
     dais_step_size: 0.003988
     n_hidden_units: 43
-    seed: 1236
-  eval_params: 
-    use_dais: False
+    seed: 1237
+  eval_params:
     use_ais: True
+    use_dais: False
+    use_mc: True
   train_params:
     save_model: True
+    load_model: False
+    load_model_path: "./experiments/dais_linesine/log/rep_00"
 
 wandb:
   group: first_runs
@@ -304,7 +336,7 @@ wandb_sweep:
 
 ---
 name: dais_sweep
-repetitions: 40
+repetitions: 50
 
 params:
   copy_sweep_model_params: ["adam_lr", "d_z", "n_hidden_units", "dais_step_size", "dais_n_annealing_steps", "dais_partial", "dais_schedule"]
