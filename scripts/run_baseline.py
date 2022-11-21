@@ -105,6 +105,7 @@ def plot_examples(
     mc_task_list: None,
     ais_task_list: None,
     dais_task_list: None,
+    n_samples: int = 3,
     device=None,
 ):
     
@@ -128,7 +129,6 @@ def plot_examples(
     )
 
     # evaluate predictions
-    n_samples = 50
     x_min = benchmark.x_bounds[0, 0]
     x_max = benchmark.x_bounds[0, 1]
     x_plt_min = x_min - 0.1 * (x_max - x_min)
@@ -148,17 +148,37 @@ def plot_examples(
         cs = context_set_sizes[i]
         np_model.adapt(x=x_test[:, :cs, :], y=y_test[:, :cs, :]) # adapt model on context set of size cs
 
-        mu_y, _ = np_model.predict(x=x_plt, n_samples=n_samples)
+        mu_y, var_y = np_model.predict(x=x_plt, n_samples=n_samples)
+        std_y = np.sqrt(var_y)
         assert mu_y.shape == (n_task_plot, n_samples, x_plt.shape[0], benchmark.d_y)
+        assert std_y.shape == (n_task_plot, n_samples, x_plt.shape[0], benchmark.d_y)
 
         for l in range(n_task_plot):
             for s in range(n_samples):
-                fig.add_trace(go.Scatter(x=x_plt.flatten(), 
-                                        y=mu_y[l, s, :, :].flatten(), 
+                x_sample = x_plt.flatten()
+                y_sample = mu_y[l, s, :, :].flatten()
+                fig.add_trace(go.Scatter(x=x_sample, 
+                                        y=y_sample, 
                                         mode='lines', name='prediction',
-                                        legendgroup='prediction', showlegend=(s==0 and l==0 and i==len(context_set_sizes)-1),
-                                        marker={'color': 'blue', 'opacity': 0.1}), 
+                                        legendgroup='prediction', 
+                                        showlegend=(s==0 and l==0 and i==len(context_set_sizes)-1),
+                                        marker={'color': 'blue', 'opacity': 1.0}), 
                             row=i+1, col=l+1,)
+                x_std_sample = np.concatenate((x_sample, x_sample[::-1]))
+                y_std_sample = np.concatenate((y_sample, y_sample[::-1])) + np.concatenate((std_y[l, s, :, :].flatten(), 
+                                                              - std_y[l, s, :, :].flatten()[::-1]))
+                fig.add_trace(
+                    go.Scatter(
+                        x = x_std_sample,
+                        y = y_std_sample,
+                        mode='lines',
+                        fill='toself',
+                        showlegend=False,
+                        line_color='rgba(255,255,255,0)',
+                        fillcolor='rgba(0,100,80,0.4)',
+                    ),
+                    row=i+1, col=l+1,
+                )
                 
             fig.add_trace(go.Scatter(x=x_test[l, cs:, :].flatten(), 
                                      y=y_test[l, cs:, :].flatten(), 
@@ -344,6 +364,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
                 mc_task_list=None if len(mc_tasks_list) == 0 else mc_tasks_list,
                 ais_task_list=None if len(ais_tasks_list) == 0 else ais_tasks_list,
                 dais_task_list=None if len(dais_tasks_list) == 0 else dais_tasks_list,
+                n_samples=eval_params['example_n_samples'],
                 device=model_params['device'],
             )
             result.update({

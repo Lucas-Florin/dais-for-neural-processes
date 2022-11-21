@@ -77,6 +77,7 @@ params:
     show_examples: True
     example_context_set_sizes: [0, 2, 8]
     example_num_tasks: 4
+    example_n_samples: 3
 
   benchmark_params:
     benchmark: "Quadratic1D"
@@ -128,9 +129,9 @@ params:
     context_sizes: [1, 2, 4, 6, 8, 12, 16]
     example_context_set_sizes: [1, 2, 8]
   train_params:
+    save_model: True
     load_model: False
     load_model_path: "./experiments/baseline_quadratic_no_empty_cs/log/rep_00"
-    save_model: True
   model_params:
     loss_type: MC
     d_z: 13
@@ -150,9 +151,9 @@ params:
   eval_params:
     use_ais: True
   train_params:
+    save_model: True
     load_model: False
     load_model_path: "./experiments/baseline_linesine/log/rep_00"
-    save_model: True
   model_params:
     loss_type: MC
     d_z: 9
@@ -176,9 +177,9 @@ params:
     context_sizes: [1, 2, 4, 6, 8, 12, 16]
     example_context_set_sizes: [1, 2, 8]
   train_params:
+    save_model: True
     load_model: False
     load_model_path: "./experiments/baseline_linesine_no_empty_cs/log/rep_00"
-    save_model: True
   model_params:
     loss_type: MC
     d_z: 19
