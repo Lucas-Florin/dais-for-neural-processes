@@ -110,9 +110,34 @@ params:
     use_ais: True
   train_params:
     save_model: True
+    load_model: False
+    load_model_path: "./experiments/baseline/log/rep_00"
   model_params:
     seed: 1237
 
+wandb:
+  group: first_runs
+  project: NP_baseline
+
+---
+name: baseline_quadratic_no_empty_cs
+
+params:
+  eval_params:
+    use_ais: True
+    context_sizes: [1, 2, 4, 6, 8, 12, 16]
+    example_context_set_sizes: [1, 2, 8]
+  train_params:
+    load_model: False
+    load_model_path: "./experiments/baseline_quadratic_no_empty_cs/log/rep_00"
+    save_model: True
+  model_params:
+    loss_type: MC
+    d_z: 13
+    n_hidden_units: 62
+    adam_lr: 0.00003014
+    n_context: [1, 15]
+    seed: 1236
 
 wandb:
   group: first_runs
@@ -124,7 +149,6 @@ name: baseline_linesine
 params:
   eval_params:
     use_ais: True
-
   train_params:
     load_model: False
     load_model_path: "./experiments/baseline_linesine/log/rep_00"
@@ -149,8 +173,6 @@ name: baseline_linesine_no_empty_cs
 params:
   eval_params:
     use_ais: True
-    use_dais: False
-    use_mc: True
     context_sizes: [1, 2, 4, 6, 8, 12, 16]
     example_context_set_sizes: [1, 2, 8]
   train_params:
@@ -172,22 +194,6 @@ wandb:
   project: NP_baseline
 
 ---
-name: baseline_load
-
-params:
-  eval_params:
-    use_ais: True
-    use_dais: False
-    use_mc: True
-  train_params:
-    load_model: True
-    load_model_path: "./experiments/baseline/log/rep_00"
-
-wandb:
-  group: first_runs
-  project: NP_baseline
-
----
 name: dais
 params: 
   model_params:
@@ -200,11 +206,12 @@ params:
     dais_step_size: 0.003629
     n_hidden_units: 29
     seed: 1238
-  eval_params: 
-    use_dais: False
+  eval_params:
     use_ais: True
   train_params:
     save_model: True
+    load_model: False
+    load_model_path: "./experiments/dais/log/rep_00"
 
 wandb:
   group: first_runs
@@ -227,8 +234,6 @@ params:
     seed: 1237
   eval_params:
     use_ais: True
-    use_dais: False
-    use_mc: True
   train_params:
     save_model: True
     load_model: False
@@ -238,6 +243,34 @@ wandb:
   group: first_runs
   project: NP_baseline
 
+
+---
+name: dais_quadratic_no_empty_cs
+params: 
+  benchmark_params:
+    benchmark: "LineSine1D"
+  model_params:
+    loss_type: DAIS
+    adam_lr: 0.00007967
+    d_z: 18
+    dais_n_annealing_steps: 7
+    dais_partial: false
+    dais_schedule: 'linear'
+    dais_step_size: 0.002765
+    n_hidden_units: 53
+    seed: 1238
+  eval_params:
+    use_ais: True
+    context_sizes: [1, 2, 4, 6, 8, 12, 16]
+    example_context_set_sizes: [1, 2, 8]
+  train_params:
+    save_model: True
+    load_model: False
+    load_model_path: "./experiments/dais_quadratic_no_empty_cs/log/rep_00"
+
+wandb:
+  group: first_runs
+  project: NP_baseline
 
 ---
 name: dais_linesine_no_empty_cs
@@ -256,7 +289,8 @@ params:
     seed: 1238
   eval_params:
     use_ais: True
-    use_mc: True
+    context_sizes: [1, 2, 4, 6, 8, 12, 16]
+    example_context_set_sizes: [1, 2, 8]
   train_params:
     save_model: True
     load_model: False
@@ -519,7 +553,7 @@ grid:
     seed: [1235, 1236, 1237, 1238, 1239]
 
 wandb:
-  group: dais_multi_seed_2.1
+  group: dais_multi_seed
   job_type: multi_seed
   project: NP_baseline
   hp_combinations_per_agent: 1
