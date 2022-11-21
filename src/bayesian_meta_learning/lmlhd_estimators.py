@@ -26,7 +26,16 @@ def get_task_batch_iterator(*args, batch_size=None):
     assert processed_datapoints == main_dimesion    
 
 
-def lmlhd_mc(decode, distribution, task, n_samples = 100, batch_size = None): # -> tuple[np.ndarray, np.ndarray]
+def get_torch_rng(seed):
+    if seed is None:
+        rng = None
+    else:
+        rng = torch.Generator()
+        rng.manual_seed(seed)
+    return rng    
+
+
+def lmlhd_mc(decode, distribution, task, n_samples = 100, batch_size = None, subbatch_size=None, seed=None): # -> tuple[np.ndarray, np.ndarray]
     task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
     mu_z, var_z = distribution
     assert mu_z.ndim == 2 # (n_tsk, d_z)
@@ -41,25 +50,32 @@ def lmlhd_mc(decode, distribution, task, n_samples = 100, batch_size = None): # 
 
     lmlhd_list = list()    
     lmlhd_samples_list = list()    
+    rng = get_torch_rng(seed)
 
     for mu_z_batch, var_z_batch, task_x_batch, task_y_batch in get_task_batch_iterator(mu_z, var_z, task_x, task_y, batch_size=batch_size):
         this_batch_size = mu_z_batch.shape[0]
-        current_sample = sample_normal(mu_z_batch, var_z_batch, n_samples)
-        current_sample = torch.unsqueeze(torch.transpose(current_sample, dim0=0, dim1=1), dim=1)
+        subbatch_size = n_samples if subbatch_size is None else subbatch_size
+        assert n_samples % subbatch_size == 0
+        lmlhd_batch_sum = np.zeros((batch_size, n_samples // subbatch_size))
+        for i in range(n_samples // subbatch_size):
+            current_sample = sample_normal(mu_z_batch, var_z_batch, subbatch_size, rng=rng)
+            current_sample = torch.unsqueeze(torch.transpose(current_sample, dim0=0, dim1=1), dim=1)
 
-        assert task_x_batch.ndim == 3  # (n_tsk, n_tst, d_x)
-        assert current_sample.ndim == 4  # (n_tsk, n_ls, n_marg, d_z)
-        assert current_sample.shape == (this_batch_size, 1, n_samples, d_z)
+            assert task_x_batch.ndim == 3  # (n_tsk, n_tst, d_x)
+            assert current_sample.ndim == 4  # (n_tsk, n_ls, n_marg, d_z)
+            assert current_sample.shape == (this_batch_size, 1, subbatch_size, d_z)
 
-        mu_y, std_y = decode(torch.from_numpy(task_x_batch).float(), current_sample) # shape will be (n_tsk, n_ls, n_marg, n_tst, d_y)
-        mu_y = torch.transpose(torch.squeeze(mu_y, dim=1), dim0=0, dim1=1).detach().numpy()
-        std_y = torch.transpose(torch.squeeze(std_y, dim=1), dim0=0, dim1=1).detach().numpy()
+            mu_y, std_y = decode(torch.from_numpy(task_x_batch).float(), current_sample) # shape will be (n_tsk, n_ls, n_marg, n_tst, d_y)
+            mu_y = torch.transpose(torch.squeeze(mu_y, dim=1), dim0=0, dim1=1).detach().numpy()
+            std_y = torch.transpose(torch.squeeze(std_y, dim=1), dim0=0, dim1=1).detach().numpy()
 
-        assert mu_y.shape == (n_samples, this_batch_size, n_points, d_y) # (n_samples, n_tasks, n_points, d_y)
-        assert std_y.shape == (n_samples, this_batch_size, n_points, d_y)# (n_samples, n_tasks, n_points, d_y)
+            assert mu_y.shape == (subbatch_size, this_batch_size, n_points, d_y) # (n_samples, n_tasks, n_points, d_y)
+            assert std_y.shape == (subbatch_size, this_batch_size, n_points, d_y)# (n_samples, n_tasks, n_points, d_y)
 
-        lmlhd_batch, lmlhd_samples_batch = get_dataset_likelihood(mu_y, std_y, task_y_batch)
-        lmlhd_list.append(lmlhd_batch)
+            lmlhd_batch, lmlhd_samples_batch = get_dataset_likelihood(mu_y, std_y, task_y_batch)
+            lmlhd_batch_sum[:, i] = lmlhd_batch
+        lmlhd_batch_sum = logsumexp(lmlhd_batch_sum, axis=1) - np.log(n_samples / subbatch_size)
+        lmlhd_list.append(lmlhd_batch_sum)
         lmlhd_samples_list.append(lmlhd_samples_batch)
         
     lmlhd = np.concatenate(lmlhd_list)
@@ -69,7 +85,7 @@ def lmlhd_mc(decode, distribution, task, n_samples = 100, batch_size = None): # 
 
     return lmlhd, lmlhd_samples
 
-def sample_normal(mu: torch.tensor, var: torch.tensor, num_samples: int): # -> tuple[torch.tensor, torch.tensor]
+def sample_normal(mu: torch.tensor, var: torch.tensor, num_samples: int, rng: torch.Generator = None): # -> tuple[torch.tensor, torch.tensor]
     """
     a sample function which takes the mu and variance of normal distributions and 
     samples from these distributions
@@ -82,9 +98,13 @@ def sample_normal(mu: torch.tensor, var: torch.tensor, num_samples: int): # -> t
     assert mu.shape == var.shape
     n_tsk = mu.shape[0]
     d_z = mu.shape[1]
-    latent_distribution =  Normal(mu, torch.sqrt(var))
-    samples = latent_distribution.sample((num_samples,)) # (number_samples, mu.shape)
-    assert samples.shape == (num_samples, n_tsk, d_z)
+    shape = (num_samples, n_tsk, d_z)
+    if rng is None:
+        latent_distribution =  Normal(mu, torch.sqrt(var))
+        samples = latent_distribution.sample((num_samples,)) # (number_samples, mu.shape)
+    else: 
+        samples = torch.normal(mu.expand(shape), var.sqrt().expand(shape), generator=rng)
+    assert samples.shape == shape
 
     return samples
 
@@ -103,7 +123,8 @@ def get_dataset_likelihood(mu_y: torch.tensor, std_y: torch.tensor, y_true: np.n
     return lmlhd, lmlhd_samples
 
 
-def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, num_leapfrog_steps=10, step_size=0.01):
+def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, num_leapfrog_steps=10, 
+              step_size=0.01, seed=None):
     task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
     assert task_x.ndim == 3
     assert task_y.ndim == 3
@@ -115,6 +136,7 @@ def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=5
 
     
     forward_schedule = torch.linspace(0, 1, chain_length + 1, device=device)
+    rng = get_torch_rng(seed)
 
     # initial state should have shape n_samples x n_task x d_z, last_agg_state has dimension n_task x d_z
     mu_z, var_z = context_distribution
@@ -127,12 +149,12 @@ def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=5
     log_prior = construct_log_prior(mu_z, var_z)
     log_posterior = construct_log_posterior(decode, log_prior, task_x_torch, task_y_torch)
 
-    initial_state = torch.normal(mu_z, torch.sqrt(var_z))
+    initial_state = torch.normal(mu_z, torch.sqrt(var_z), generator=rng)
     assert initial_state.shape == (n_samples, n_tsk, d_z)
 
     return ais_trajectory(log_prior, log_posterior, initial_state, n_samples=n_samples, forward=True, 
                           schedule = forward_schedule, initial_step_size = step_size, device = device, 
-                          num_leapfrog_steps=num_leapfrog_steps)
+                          num_leapfrog_steps=num_leapfrog_steps, rng=rng)
 
 
 def construct_log_prior(mu_z, var_z):
@@ -213,7 +235,7 @@ def lmlhd_iwmc(decode, context_distribution, target_distribution, task, n_sample
 
 
 def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, 
-               num_leapfrog_steps=10, step_size=0.01, batch_size=None, clip_grad=1.0):
+               num_leapfrog_steps=10, step_size=0.01, batch_size=None, clip_grad=1.0, seed=None):
     task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
     assert task_x.ndim == 3
     assert task_y.ndim == 3
@@ -227,7 +249,7 @@ def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=
     mu_z, var_z = context_distribution
     n_tsk = task_x.shape[0]
     d_z = mu_z.shape[-1]
-    
+    rng = None if seed is None else np.random.RandomState(seed)
     batch_size = n_tsk if batch_size is None else batch_size
     lmlhd_list = list()    
     for mu_z_batch, var_z_batch, task_x_batch, task_y_batch in get_task_batch_iterator(mu_z, var_z, task_x, task_y, batch_size=batch_size):
@@ -240,7 +262,7 @@ def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=
         log_prior = construct_log_prior(mu_z_batch, var_z_batch)
         log_posterior = construct_log_posterior(decode, log_prior, task_x_batch, task_y_batch)
         
-        initial_state = torch.normal(mu_z_batch, torch.sqrt(var_z_batch))
+        initial_state = torch.normal(mu_z_batch, torch.sqrt(var_z_batch), generator=rng)
         # assert initial_state.shape == (n_samples, batch_size, d_z)
 
         ll, _ = differentiable_annealed_importance_sampling(
@@ -250,6 +272,7 @@ def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=
             chain_length, 
             step_size = step_size,
             clip_grad=clip_grad,
+            rng=rng,
         )
         ll = ll.detach()
         ll = torch.logsumexp(ll, dim=0) - torch.log(torch.tensor(n_samples))
