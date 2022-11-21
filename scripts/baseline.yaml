@@ -54,6 +54,7 @@ params:
     use_mc: True
     mc_n_samples: 10000
     mc_batch_size: 16
+    mc_subbatch_size: null
     mc_seed: 4783
 
     use_ais: False

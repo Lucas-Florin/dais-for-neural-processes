@@ -259,6 +259,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
                     eval_params["mc_n_samples"],
                     batch_size=eval_params["mc_batch_size"],
                     seed=eval_params['mc_seed'],
+                    subbatch_size=eval_params['mc_subbatch_size']
                 )
                 mc_tasks_list[cs] = lmlhd_estimate_mc
                 mc_list.append(np.median(lmlhd_estimate_mc))
