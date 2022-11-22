@@ -85,6 +85,6 @@ def accept_reject(current_z: torch.Tensor,
     accept_hist.add_(accept)
     criteria = torch.gt(accept_hist / hist_len, acceptance_threshold)
     adapt = criteria * 1.02 + ~criteria * 0.98
-    epsilon.mul_(adapt).clamp_(min_step_size, max_step_size)
+    epsilon = (epsilon * adapt).clamp(min_step_size, max_step_size)
 
     return z, epsilon, accept_hist

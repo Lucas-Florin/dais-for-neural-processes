@@ -16,7 +16,7 @@ from cw2 import experiment, cw_error, cluster_work
 from cw2.cw_data import cw_logging
 from cw2.cw_data.cw_wandb_logger import WandBLogger
 
-from bayesian_meta_learning.lmlhd_estimators import lmlhd_mc, lmlhd_ais, lmlhd_dais
+from bayesian_meta_learning.lmlhd_estimators import lmlhd_mc, lmlhd_ais, lmlhd_dais, lmlhd_dais_new
 from metalearning_benchmarks import MetaLearningBenchmark
 from metalearning_benchmarks import benchmark_dict as BM_DICT
 from neural_process.neural_process import NeuralProcess
@@ -105,6 +105,7 @@ def plot_examples(
     mc_task_list: None,
     ais_task_list: None,
     dais_task_list: None,
+    dais_new_task_list: None,
     n_samples: int = 3,
     device=None,
 ):
@@ -115,7 +116,7 @@ def plot_examples(
     for cs in context_set_sizes:
         for t in range(n_task_plot):
             title = ''
-            for task_list, name in zip((mc_task_list, ais_task_list, dais_task_list), ('MC', 'AIS', 'DAIS')):
+            for task_list, name in zip((mc_task_list, ais_task_list, dais_task_list, dais_new_task_list), ('MC', 'AIS', 'DAIS', 'DAIS_new')):
                 if task_list is not None:
                     assert len(task_list) > 0
                     ml = task_list[cs][t]
@@ -259,7 +260,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
         # Evaluate
         eval_params = copy.deepcopy(params["eval_params"])
         copy_sweep_params(params, eval_params, params['copy_sweep_eval_params'])
-        assert eval_params['use_mc'] or eval_params['use_ais']
+        # assert eval_params['use_mc'] or eval_params['use_ais']
         x_test, y_test = collate_benchmark(self.benchmark_test)
         context_size_list = eval_params["context_sizes"]
         mc_list = list()
@@ -268,6 +269,8 @@ class BaselineExperiment(experiment.AbstractExperiment):
         ais_tasks_list = dict()
         dais_list = list()
         dais_tasks_list = dict()        
+        dais_new_list = list()
+        dais_new_tasks_list = dict()        
         for cs in tqdm(context_size_list):
             model.adapt(x = x_test[:, :cs, :], y = y_test[:, :cs, :])
             mu_z, var_z = model.aggregator.last_agg_state
@@ -316,6 +319,26 @@ class BaselineExperiment(experiment.AbstractExperiment):
                 )
                 dais_tasks_list[cs] = (lmlhd_estimate_dais.detach().numpy())
                 dais_list.append(np.median(lmlhd_estimate_dais.detach().numpy()))
+            if eval_params['use_dais_new']:
+                # complete_config_with_given_total(eval_params, 
+                #                                  ['ais_n_samples', 'ais_chain_length', 'ais_n_hmc_steps'], 
+                #                                  eval_params['ais_total_compute'])
+                lmlhd_estimate_dais_new = lmlhd_dais_new(
+                    lambda x,z: np_decode(model, x, z), 
+                    (mu_z, var_z), 
+                    (x_test, y_test), 
+                    n_samples=eval_params['dais_new_n_samples'],
+                    chain_length=eval_params['dais_new_chain_length'],
+                    device=model_params['device'],
+                    num_leapfrog_steps=eval_params['dais_new_n_hmc_steps'],
+                    step_size=eval_params['dais_new_step_size'],
+                    clip_grad=eval_params['dais_new_clip_grad'],
+                    adapt_step_size=eval_params['dais_new_adapt_step_size'],
+                    do_accept_reject_step=['dais_new_do_accept_reject_step'],
+                    seed=eval_params['dais_new_seed'],
+                )
+                dais_new_tasks_list[cs] = (lmlhd_estimate_dais_new.detach().numpy())
+                dais_new_list.append(np.median(lmlhd_estimate_dais_new.detach().numpy()))
         result = dict()
         if eval_params['use_mc']:
             mc_objective = np.mean(mc_list)
@@ -357,6 +380,20 @@ class BaselineExperiment(experiment.AbstractExperiment):
                 if type(l) is WandBLogger:
                     l.log_plot(context_size_list, dais_list, ["context_size", "DAIS objective"], 'dais_plot', 'DAIS estimator for LL')
                     
+        if eval_params['use_dais_new']:
+            dais_new_objective = np.mean(dais_new_list)
+            print(f'DAIS_new Objective list: ')
+            print(dais_new_list)
+            print("DAIS_new Objective: " + str(dais_new_objective))
+            result.update({
+                "dais_new_objective": dais_new_objective,
+                "dais_new_objective_list": dais_new_list,
+            })
+            for l in logger:
+                if type(l) is WandBLogger:
+                    l.log_plot(context_size_list, dais_list, ["context_size", "DAIS_new objective"], 
+                               'dais_new_plot', 'DAIS_new estimator for LL')
+                    
         if eval_params['show_examples']:
             fig = plot_examples(
                 model,
@@ -366,6 +403,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
                 mc_task_list=None if len(mc_tasks_list) == 0 else mc_tasks_list,
                 ais_task_list=None if len(ais_tasks_list) == 0 else ais_tasks_list,
                 dais_task_list=None if len(dais_tasks_list) == 0 else dais_tasks_list,
+                dais_new_task_list=None if len(dais_new_tasks_list) == 0 else dais_new_tasks_list,
                 n_samples=eval_params['example_n_samples'],
                 device=model_params['device'],
             )

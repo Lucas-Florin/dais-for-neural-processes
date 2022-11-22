@@ -3,6 +3,7 @@ import numpy as np
 import torch
 
 from bayesian_meta_learning.ais import ais_trajectory
+from bayesian_meta_learning.dais_new import dais_trajectory as dais_new_trajecory
 from eval_util.util import log_likelihood_mc_per_datapoint
 from scipy.special import logsumexp
 from torch.distributions.normal import Normal
@@ -156,6 +157,43 @@ def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=5
                           schedule = forward_schedule, initial_step_size = step_size, device = device, 
                           num_leapfrog_steps=num_leapfrog_steps, rng=rng)
 
+
+def lmlhd_dais_new(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, 
+                   num_leapfrog_steps=10, step_size=0.01, clip_grad=100.0, adapt_step_size=True, 
+                   do_accept_reject_step=False, 
+                   seed=None):
+    task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
+    assert task_x.ndim == 3
+    assert task_y.ndim == 3
+    assert isinstance(task_x, np.ndarray)
+    assert isinstance(task_y, np.ndarray)
+
+    task_x_torch = torch.from_numpy(task_x).float()
+    task_y_torch = torch.from_numpy(task_y).float()
+
+    
+    forward_schedule = torch.linspace(0, 1, chain_length + 1, device=device)
+    rng = get_torch_rng(seed)
+
+    # initial state should have shape n_samples x n_task x d_z, last_agg_state has dimension n_task x d_z
+    mu_z, var_z = context_distribution
+    mu_z = mu_z.repeat(n_samples, 1, 1)
+    var_z = var_z.repeat(n_samples, 1, 1)
+
+    n_tsk = task_x.shape[0]
+    d_z = mu_z.shape[-1]
+
+    log_prior = construct_log_prior(mu_z, var_z)
+    log_posterior = construct_log_posterior(decode, log_prior, task_x_torch, task_y_torch)
+
+    initial_state = torch.normal(mu_z, torch.sqrt(var_z), generator=rng)
+    assert initial_state.shape == (n_samples, n_tsk, d_z)
+
+    return dais_new_trajecory(log_prior, log_posterior, initial_state, n_samples=n_samples, forward=True, 
+                          schedule = forward_schedule, initial_step_size = step_size, device = device, rng=rng,
+                          num_leapfrog_steps=num_leapfrog_steps, clip_grad=clip_grad, adapt_step_size=adapt_step_size, 
+                          do_accept_reject_step=do_accept_reject_step,
+                          )
 
 def construct_log_prior(mu_z, var_z):
     assert mu_z.shape == var_z.shape

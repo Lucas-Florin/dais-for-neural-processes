@@ -65,6 +65,17 @@ params:
     ais_step_size: 0.01
     ais_seed: 8465
 
+    use_dais_new: False
+    dais_new_n_samples: 10
+    dais_new_chain_length: 100
+    dais_new_n_hmc_steps: 10
+    dais_new_total_compute: null
+    dais_new_step_size: 0.01
+    dais_new_clip_grad: 100.0
+    dais_new_adapt_step_size: False
+    dais_new_do_accept_reject_step: False
+    dais_new_seed: 8465
+
     use_dais: False
     dais_n_samples: 10
     dais_chain_length: 1000
