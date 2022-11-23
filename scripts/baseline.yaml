@@ -71,6 +71,8 @@ params:
     dais_new_n_hmc_steps: 10
     dais_new_total_compute: null
     dais_new_step_size: 0.01
+    dais_new_step_size_update_factor: 0.98
+    dais_new_target_accept_rate: 0.65
     dais_new_clip_grad: 100.0
     dais_new_adapt_step_size: False
     dais_new_do_accept_reject_step: False

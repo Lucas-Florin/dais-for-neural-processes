@@ -332,6 +332,8 @@ class BaselineExperiment(experiment.AbstractExperiment):
                     device=model_params['device'],
                     num_leapfrog_steps=eval_params['dais_new_n_hmc_steps'],
                     step_size=eval_params['dais_new_step_size'],
+                    step_size_update_factor=eval_params['dais_new_step_size_update_factor'],
+                    target_accept_rate=eval_params['dais_new_target_accept_rate'],
                     clip_grad=eval_params['dais_new_clip_grad'],
                     adapt_step_size=eval_params['dais_new_adapt_step_size'],
                     do_accept_reject_step=['dais_new_do_accept_reject_step'],

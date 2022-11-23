@@ -18,6 +18,8 @@ def dais_trajectory(
     forward: bool,
     schedule: Union[torch.Tensor, List],
     initial_step_size: Optional[int] = 0.01,
+    step_size_update_factor = 0.98,
+    target_accept_rate = 0.65,
     adapt_step_size=False,
     device: Optional[torch.device] = None,
     num_leapfrog_steps: Optional[int] = 10,
@@ -106,6 +108,8 @@ def dais_trajectory(
                 j,
                 U=U,
                 K=normalized_kinetic,
+                acceptance_threshold=target_accept_rate,
+                epsilon_update_factor=step_size_update_factor,
                 rng=rng,
             )
             epsilon = epsilon_new if adapt_step_size else epsilon

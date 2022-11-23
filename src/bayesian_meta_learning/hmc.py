@@ -51,6 +51,7 @@ def accept_reject(current_z: torch.Tensor,
                   max_step_size: Optional[float] = 0.5,
                   min_step_size: Optional[float] = 1e-4,
                   acceptance_threshold: Optional[float] = 0.65,
+                  epsilon_update_factor = 0.98,
                   rng: torch.Generator = None,
                   ):
     """Accept/reject based on Hamiltonians for current and propose.
@@ -84,7 +85,7 @@ def accept_reject(current_z: torch.Tensor,
 
     accept_hist.add_(accept)
     criteria = torch.gt(accept_hist / hist_len, acceptance_threshold)
-    adapt = criteria * 1.02 + ~criteria * 0.98
+    adapt = criteria / epsilon_update_factor + ~criteria * epsilon_update_factor
     epsilon = (epsilon * adapt).clamp(min_step_size, max_step_size)
 
     return z, epsilon, accept_hist

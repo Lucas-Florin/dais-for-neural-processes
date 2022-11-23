@@ -159,8 +159,8 @@ def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=5
 
 
 def lmlhd_dais_new(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, 
-                   num_leapfrog_steps=10, step_size=0.01, clip_grad=100.0, adapt_step_size=True, 
-                   do_accept_reject_step=False, 
+                   num_leapfrog_steps=10, step_size=0.01, step_size_update_factor = 0.98, target_accept_rate = 0.65, 
+                   clip_grad=100.0, adapt_step_size=True, do_accept_reject_step=False, 
                    seed=None):
     task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
     assert task_x.ndim == 3
@@ -190,7 +190,9 @@ def lmlhd_dais_new(decode, context_distribution, task, n_samples = 10, chain_len
     assert initial_state.shape == (n_samples, n_tsk, d_z)
 
     return dais_new_trajecory(log_prior, log_posterior, initial_state, n_samples=n_samples, forward=True, 
-                          schedule = forward_schedule, initial_step_size = step_size, device = device, rng=rng,
+                          schedule = forward_schedule, initial_step_size = step_size, 
+                          step_size_update_factor=step_size_update_factor, target_accept_rate=target_accept_rate, 
+                          device = device, rng=rng,
                           num_leapfrog_steps=num_leapfrog_steps, clip_grad=clip_grad, adapt_step_size=adapt_step_size, 
                           do_accept_reject_step=do_accept_reject_step,
                           )
