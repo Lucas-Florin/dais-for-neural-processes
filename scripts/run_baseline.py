@@ -336,7 +336,8 @@ class BaselineExperiment(experiment.AbstractExperiment):
                     target_accept_rate=eval_params['dais_new_target_accept_rate'],
                     clip_grad=eval_params['dais_new_clip_grad'],
                     adapt_step_size=eval_params['dais_new_adapt_step_size'],
-                    do_accept_reject_step=['dais_new_do_accept_reject_step'],
+                    do_accept_reject_step=eval_params['dais_new_do_accept_reject_step'],
+                    use_accept_hist=eval_params['dais_new_use_accept_hist'],
                     seed=eval_params['dais_new_seed'],
                 )
                 dais_new_tasks_list[cs] = (lmlhd_estimate_dais_new.detach().numpy())

@@ -10,7 +10,7 @@ from bayesian_meta_learning import hmc
 # import logging
 
 @torch.no_grad()
-def dais_trajectory(
+def dais_new_trajectory(
     proposal_log_prob_fn,
     target_log_prob_fn,
     initial_state,
@@ -21,6 +21,7 @@ def dais_trajectory(
     step_size_update_factor = 0.98,
     target_accept_rate = 0.65,
     adapt_step_size=False,
+    use_accept_hist=True,
     device: Optional[torch.device] = None,
     num_leapfrog_steps: Optional[int] = 10,
     clip_grad=100.0,
@@ -97,24 +98,23 @@ def dais_trajectory(
         current_v = torch.normal(0.0, 1.0, size=current_z.shape, generator=rng)
         z, v = hmc.hmc_trajectory(current_z, current_v, grad_U, epsilon, L=num_leapfrog_steps)
 
-        if do_accept_reject_step:
-            current_z, epsilon_new, accept_hist = hmc.accept_reject(
-                current_z,
-                current_v,
-                z,
-                v,
-                epsilon,
-                accept_hist,
-                j,
-                U=U,
-                K=normalized_kinetic,
-                acceptance_threshold=target_accept_rate,
-                epsilon_update_factor=step_size_update_factor,
-                rng=rng,
-            )
-            epsilon = epsilon_new if adapt_step_size else epsilon
-        else: 
-            assert not adapt_step_size
+        current_z, epsilon, accept_hist = hmc.accept_reject(
+            current_z,
+            current_v,
+            z,
+            v,
+            epsilon,
+            accept_hist,
+            j,
+            U=U,
+            K=normalized_kinetic,
+            acceptance_threshold=target_accept_rate,
+            epsilon_update_factor=step_size_update_factor,
+            adapt_step_size=adapt_step_size,
+            do_accept_reject_step=do_accept_reject_step,
+            use_accept_hist=use_accept_hist,
+            rng=rng,
+        )
         
     logw = torch.logsumexp(logw, dim=0) - torch.log(torch.tensor(n_samples))
 

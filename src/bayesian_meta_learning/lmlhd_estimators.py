@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 from bayesian_meta_learning.ais import ais_trajectory
-from bayesian_meta_learning.dais_new import dais_trajectory as dais_new_trajecory
+from bayesian_meta_learning.dais_new import dais_new_trajectory
 from eval_util.util import log_likelihood_mc_per_datapoint
 from scipy.special import logsumexp
 from torch.distributions.normal import Normal
@@ -160,7 +160,7 @@ def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=5
 
 def lmlhd_dais_new(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, 
                    num_leapfrog_steps=10, step_size=0.01, step_size_update_factor = 0.98, target_accept_rate = 0.65, 
-                   clip_grad=100.0, adapt_step_size=True, do_accept_reject_step=False, 
+                   clip_grad=100.0, adapt_step_size=True, do_accept_reject_step=False, use_accept_hist=True,
                    seed=None):
     task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
     assert task_x.ndim == 3
@@ -189,12 +189,12 @@ def lmlhd_dais_new(decode, context_distribution, task, n_samples = 10, chain_len
     initial_state = torch.normal(mu_z, torch.sqrt(var_z), generator=rng)
     assert initial_state.shape == (n_samples, n_tsk, d_z)
 
-    return dais_new_trajecory(log_prior, log_posterior, initial_state, n_samples=n_samples, forward=True, 
+    return dais_new_trajectory(log_prior, log_posterior, initial_state, n_samples=n_samples, forward=True, 
                           schedule = forward_schedule, initial_step_size = step_size, 
                           step_size_update_factor=step_size_update_factor, target_accept_rate=target_accept_rate, 
                           device = device, rng=rng,
                           num_leapfrog_steps=num_leapfrog_steps, clip_grad=clip_grad, adapt_step_size=adapt_step_size, 
-                          do_accept_reject_step=do_accept_reject_step,
+                          do_accept_reject_step=do_accept_reject_step, use_accept_hist=use_accept_hist,
                           )
 
 def construct_log_prior(mu_z, var_z):

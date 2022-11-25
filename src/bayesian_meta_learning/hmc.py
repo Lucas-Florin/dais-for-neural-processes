@@ -52,6 +52,9 @@ def accept_reject(current_z: torch.Tensor,
                   min_step_size: Optional[float] = 1e-4,
                   acceptance_threshold: Optional[float] = 0.65,
                   epsilon_update_factor = 0.98,
+                  adapt_step_size=False,
+                  do_accept_reject_step=False,
+                  use_accept_hist=True,
                   rng: torch.Generator = None,
                   ):
     """Accept/reject based on Hamiltonians for current and propose.
@@ -76,16 +79,19 @@ def accept_reject(current_z: torch.Tensor,
         the new state z, the adapted step size epsilon, and the updated
         accept-reject history
     """
-    current_Hamil = K(current_v) + U(current_z)
-    propose_Hamil = K(v) + U(z)
-
-    prob = torch.clamp_max(torch.exp(current_Hamil - propose_Hamil), 1.)
-    accept = torch.gt(prob, torch.rand(prob.shape, generator=rng))
-    z = accept[..., None] * z + ~accept[..., None] * current_z
-
-    accept_hist.add_(accept)
-    criteria = torch.gt(accept_hist / hist_len, acceptance_threshold)
-    adapt = criteria / epsilon_update_factor + ~criteria * epsilon_update_factor
-    epsilon = (epsilon * adapt).clamp(min_step_size, max_step_size)
+    with torch.no_grad():
+        current_Hamil = K(current_v) + U(current_z)
+        propose_Hamil = K(v) + U(z)
+        prob = torch.clamp_max(torch.exp(current_Hamil - propose_Hamil), 1.)
+        accept = torch.gt(prob, torch.rand(prob.shape, generator=rng))
+        if do_accept_reject_step:
+            z = accept[..., None] * z + ~accept[..., None] * current_z
+        accept_hist.add_(accept)
+        # print(accept.float().mean())
+        if adapt_step_size:
+            accept_reference = accept_hist / hist_len if use_accept_hist else accept
+            criteria = torch.gt(accept_reference, acceptance_threshold)
+            adapt = criteria / epsilon_update_factor + ~criteria * epsilon_update_factor
+            epsilon = (epsilon * adapt).clamp(min_step_size, max_step_size)
 
     return z, epsilon, accept_hist
