@@ -58,8 +58,11 @@ def dais_new_trajectory(
         return proposal + target
 
     B = initial_state.shape[:-1]
-
-    epsilon = torch.full(size=B, device=device, fill_value=initial_step_size)
+    if type(initial_step_size) is torch.Tensor and len(initial_step_size.shape) > 0:
+        epsilon = initial_step_size
+        assert epsilon.shape == B
+    else:
+        epsilon = torch.full(size=B, device=device, fill_value=initial_step_size)
     accept_hist = torch.zeros(size=B, device=device)
     logw = torch.zeros(size=B, device=device)
 
