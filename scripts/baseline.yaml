@@ -218,6 +218,60 @@ wandb:
   project: NP_baseline
 
 ---
+name: baseline_linesine_no_empty_cs_more_train_samples
+
+params:
+  eval_params:
+    use_ais: True
+    context_sizes: [1, 2, 4, 6, 8, 12, 16]
+    example_context_set_sizes: [1, 2, 8]
+  train_params:
+    save_model: True
+    load_model: False
+    load_model_path: "./experiments/baseline_linesine_no_empty_cs_more_train_samples/log/rep_00"
+  model_params:
+    loss_type: MC
+    d_z: 28
+    n_hidden_units: 61
+    adam_lr: 0.001339
+    n_context: [1, 15]
+    seed: 1238
+    n_samples: 160
+  benchmark_params:
+    benchmark: "LineSine1D"
+
+wandb:
+  group: first_runs
+  project: NP_baseline
+
+---
+name: baseline_linesine_no_empty_cs_uncertain
+
+params:
+  eval_params:
+    use_ais: True
+    context_sizes: [1, 2, 4, 6, 8, 12, 16]
+    example_context_set_sizes: [1, 2, 8]
+  train_params:
+    save_model: True
+    load_model: False
+    load_model_path: "./experiments/baseline_linesine_no_empty_cs_uncertain/log/rep_00"
+  model_params:
+    loss_type: MC
+    d_z: 30
+    n_hidden_units: 39
+    adam_lr: 0.006263
+    n_context: [1, 15]
+    decoder_output_scale: 0.2092
+    seed: 1235
+  benchmark_params:
+    benchmark: "LineSine1D"
+
+wandb:
+  group: first_runs
+  project: NP_baseline
+
+---
 name: dais
 params: 
   model_params:
@@ -271,8 +325,6 @@ wandb:
 ---
 name: dais_quadratic_no_empty_cs
 params: 
-  benchmark_params:
-    benchmark: "LineSine1D"
   model_params:
     loss_type: DAIS
     adam_lr: 0.00007967
@@ -319,6 +371,35 @@ params:
     save_model: True
     load_model: False
     load_model_path: "./experiments/dais_linesine_no_empty_cs/log/rep_00"
+
+wandb:
+  group: first_runs
+  project: NP_baseline
+
+---
+name: dais_linesine_no_empty_cs_uncertain
+params: 
+  benchmark_params:
+    benchmark: "LineSine1D"
+  model_params:
+    loss_type: DAIS
+    adam_lr: 0.00545
+    d_z: 19
+    dais_n_annealing_steps: 1
+    dais_partial: false
+    dais_schedule: 'curve'
+    dais_step_size: 0.003064
+    n_hidden_units: 34
+    seed: 1235
+    decoder_output_scale: 0.2493
+  eval_params:
+    use_ais: True
+    context_sizes: [1, 2, 4, 6, 8, 12, 16]
+    example_context_set_sizes: [1, 2, 8]
+  train_params:
+    save_model: True
+    load_model: False
+    load_model_path: "./experiments/dais_linesine_no_empty_cs_uncertain/log/rep_00"
 
 wandb:
   group: first_runs
