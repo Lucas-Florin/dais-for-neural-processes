@@ -282,7 +282,8 @@ def lmlhd_iwmc(decode, context_distribution, target_distribution, task, n_sample
 
 
 def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, 
-               num_leapfrog_steps=10, step_size=0.01, batch_size=None, clip_grad=1.0, seed=None):
+               num_leapfrog_steps=10, step_size=0.01, partial=False, batch_size=None, clip_grad=1.0, 
+               adapt_step_size_to_std_z=False, scalar_step_size=False, seed=None):
     task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
     assert task_x.ndim == 3
     assert task_y.ndim == 3
@@ -304,12 +305,17 @@ def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=
         # initial state should have shape n_samples x n_task x d_z, last_agg_state has dimension n_task x d_z
         mu_z_batch = mu_z_batch.repeat(n_samples, 1, 1)
         var_z_batch = var_z_batch.repeat(n_samples, 1, 1)
-
-
+        step_size_batch = step_size
+        if adapt_step_size_to_std_z:
+            if scalar_step_size:
+                step_size_batch = step_size_batch * var_z_batch.sqrt().mean()
+            else:
+                step_size_batch = step_size_batch * var_z_batch.sqrt().mean(-1)
+            step_size_batch = step_size_batch.detach()
         log_prior = construct_log_prior(mu_z_batch, var_z_batch)
         log_posterior = construct_log_posterior(decode, log_prior, task_x_batch, task_y_batch)
         
-        initial_state = torch.normal(mu_z_batch, torch.sqrt(var_z_batch), generator=rng)
+        initial_state = torch.from_numpy(rng.normal(mu_z_batch.numpy(), torch.sqrt(var_z_batch).numpy())).float()
         # assert initial_state.shape == (n_samples, batch_size, d_z)
 
         ll, _ = differentiable_annealed_importance_sampling(
@@ -317,8 +323,10 @@ def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=
             log_posterior, 
             log_prior, 
             chain_length, 
-            step_size = step_size,
+            step_size = step_size_batch,
+            partial=partial,
             clip_grad=clip_grad,
+            is_train=False,
             rng=rng,
         )
         ll = ll.detach()

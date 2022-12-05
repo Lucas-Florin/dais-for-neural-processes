@@ -86,6 +86,9 @@ params:
     dais_chain_length: 1000
     # dais_n_hmc_steps: 10
     dais_step_size: 0.01
+    dais_adapt_step_size_to_std_z: True
+    dais_scalar_step_size: True
+    dais_partial: True
     dais_batch_size: 2
     dais_clip_grad: 1.0
     dais_seed: 2357
