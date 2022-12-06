@@ -125,7 +125,7 @@ def get_dataset_likelihood(mu_y: torch.tensor, std_y: torch.tensor, y_true: np.n
 
 
 def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, num_leapfrog_steps=10, 
-              step_size=0.01, seed=None):
+              step_size=0.01, adapt_step_size_to_std_z=False, scalar_step_size=False, seed=None):
     task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
     assert task_x.ndim == 3
     assert task_y.ndim == 3
@@ -143,6 +143,13 @@ def lmlhd_ais(decode, context_distribution, task, n_samples = 10, chain_length=5
     mu_z, var_z = context_distribution
     mu_z = mu_z.repeat(n_samples, 1, 1)
     var_z = var_z.repeat(n_samples, 1, 1)
+
+    if adapt_step_size_to_std_z:
+        if scalar_step_size:
+            step_size = step_size * var_z.sqrt().mean()
+        else:
+            step_size = step_size * var_z.sqrt().mean(-1)
+        step_size = step_size.detach()
 
     n_tsk = task_x.shape[0]
     d_z = mu_z.shape[-1]

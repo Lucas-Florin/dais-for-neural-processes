@@ -299,6 +299,8 @@ class BaselineExperiment(experiment.AbstractExperiment):
                     device=model_params['device'],
                     num_leapfrog_steps=eval_params['ais_n_hmc_steps'],
                     step_size=eval_params['ais_step_size'],
+                    adapt_step_size_to_std_z=eval_params['ais_adapt_step_size_to_std_z'],
+                    scalar_step_size=eval_params['ais_scalar_step_size'],
                     seed=eval_params['ais_seed'],
                 )
                 ais_tasks_list[cs] = (lmlhd_estimate_ais.detach().numpy())
