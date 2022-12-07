@@ -8,3 +8,8 @@
 experiments/
 plots/
 **/__pycache__/
+
+# Shell scripts
+run.sh
+sweep.sh
+repeat.sh
