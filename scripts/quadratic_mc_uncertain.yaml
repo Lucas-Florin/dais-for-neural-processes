@@ -1,0 +1,136 @@
+---
+# Slurm bwuni cpu
+name: "SLURM"   # MUST BE "SLURM"
+partition: "single"  # "single" for cpu, "gpu_4" or gpu_8" for gpu
+job-name: "qd_mc_u" # this will be the experiment's name in slurm
+path_to_template: scripts/sbatch_template_bwuni_simple.sh
+num_parallel_jobs: 50 # max number of jobs executed in parallel
+ntasks: 1   #  leave that like it is
+cpus-per-task: 1   # there are 10 cores for each GPU
+time: 4000   # in minutes
+
+---
+name: DEFAULT
+import_path: baseline.yaml
+
+wandb:
+  group: quadratic_mc
+  project: NP_baseline
+  hp_combinations_per_agent: 1
+
+---
+name: quadratic_mc_uncertain
+
+params:
+  train_params:
+    save_model: True
+    load_model: False
+    load_model_path: "./experiments/quadratic_mc/log/rep_00"
+  model_params:
+    adam_lr: 0.0001568
+    d_z: 28
+    n_hidden_units: 60
+    decoder_output_scale: 0.1115
+    seed: 1237
+  benchmark_params:
+    seed_task_test: 1236
+    seed_x_test: 2236
+    seed_noise_test: 3236
+  eval_params:
+    use_dais: True
+
+wandb:
+  job_type: run
+
+
+---
+name: quadratic_mc_sweep
+repetitions: 40
+
+params:
+  copy_sweep_model_params: ["adam_lr", "d_z", "n_hidden_units", "decoder_output_scale"]
+  eval_params:
+    use_ais: False
+    show_examples: False
+
+wandb:
+  job_type: sweep
+  sweep_id: new
+  hp_combinations_per_agent: 6
+
+wandb_sweep:
+  name: quadratic_mc_sweep_std_y
+  metric: 
+    name: mc_objective
+    goal: maximize
+  method: bayes
+  parameters: 
+    adam_lr:
+      distribution: log_uniform_values
+      max: 0.01
+      min: 0.00001
+    d_z: 
+      min: 8
+      max: 32
+    n_hidden_units:
+      min: 8
+      max: 64
+    decoder_output_scale:
+      distribution: log_uniform_values
+      max: 1.0
+      min: 0.001
+
+
+---
+name: quadratic_mc_repeat
+repetitions: 1
+params:
+  train_params:
+    save_model: True
+    
+list:
+  model_params:
+    adam_lr: [0.00008781, 0.0001234, 0.0001568, 0.00009019, 0.0001001]
+    d_z: [30, 8, 28, 31, 31]
+    decoder_output_scale: [0.09979, 0.1163, 0.1115, 0.1176, 0.0958]
+    n_hidden_units: [45, 34, 60, 43, 46]
+
+grid:
+  model_params:
+    seed: [1235, 1236, 1237, 1238, 1239]
+
+wandb:
+  job_type: repeat
+
+
+---
+name: quadratic_mc_repeat_test
+
+params:
+  train_params:
+    save_model: False
+    load_model: True
+  model_params:
+    adam_lr: 0.0001568
+    d_z: 28
+    n_hidden_units: 60
+    decoder_output_scale: 0.1115
+    seed: 1237
+  benchmark_params:
+    seed_task_test: 1236
+    seed_x_test: 2236
+    seed_noise_test: 3236
+
+list:
+  model_params:
+    seed: [1235, 1236, 1237, 1238, 1239]
+  train_params:
+    load_model_path: 
+      - "./experiments/quadratic_mc_repeat/quadratic_mc_repeat__mod.al0.0001568_mod.dz28_mod.dos0.1115_mod.nhu60_mod.s1235/log/rep_00"
+      - "./experiments/quadratic_mc_repeat/quadratic_mc_repeat__mod.al0.0001568_mod.dz28_mod.dos0.1115_mod.nhu60_mod.s1236/log/rep_00"
+      - "./experiments/quadratic_mc_repeat/quadratic_mc_repeat__mod.al0.0001568_mod.dz28_mod.dos0.1115_mod.nhu60_mod.s1237/log/rep_00"
+      - "./experiments/quadratic_mc_repeat/quadratic_mc_repeat__mod.al0.0001568_mod.dz28_mod.dos0.1115_mod.nhu60_mod.s1238/log/rep_00"
+      - "./experiments/quadratic_mc_repeat/quadratic_mc_repeat__mod.al0.0001568_mod.dz28_mod.dos0.1115_mod.nhu60_mod.s1239/log/rep_00"
+
+wandb:
+  job_type: repeat_test

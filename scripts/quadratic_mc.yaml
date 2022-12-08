@@ -1,0 +1,101 @@
+---
+# Slurm bwuni cpu
+name: "SLURM"   # MUST BE "SLURM"
+partition: "single"  # "single" for cpu, "gpu_4" or gpu_8" for gpu
+job-name: "qd_mc" # this will be the experiment's name in slurm
+path_to_template: scripts/sbatch_template_bwuni_simple.sh
+num_parallel_jobs: 50 # max number of jobs executed in parallel
+ntasks: 1   #  leave that like it is
+cpus-per-task: 1   # there are 10 cores for each GPU
+time: 4000   # in minutes
+
+---
+name: DEFAULT
+import_path: baseline.yaml
+
+wandb:
+  group: quadratic_mc
+  project: NP_baseline
+  hp_combinations_per_agent: 1
+
+---
+name: quadratic_mc
+
+params:
+  train_params:
+    save_model: True
+    load_model: False
+    load_model_path: "./experiments/quadratic_mc/log/rep_00"
+  model_params:
+    adam_lr: 0.0000657
+    d_z: 31
+    n_hidden_units: 54
+    seed: 1235
+  benchmark_params:
+    seed_task_test: 1236
+    seed_x_test: 2236
+    seed_noise_test: 3236
+  eval_params:
+    use_dais: True
+
+wandb:
+  job_type: run
+
+
+---
+name: quadratic_mc_sweep
+repetitions: 40
+
+params:
+  copy_sweep_model_params: ["adam_lr", "d_z", "n_hidden_units"]
+  eval_params:
+    use_ais: False
+    show_examples: False
+
+wandb:
+  job_type: sweep
+  sweep_id: new
+  hp_combinations_per_agent: 6
+
+wandb_sweep:
+  name: quadratic_mc_sweep
+  metric: 
+    name: mc_objective
+    goal: maximize
+  method: bayes
+  parameters: 
+    adam_lr:
+      distribution: log_uniform_values
+      max: 0.01
+      min: 0.00001
+    d_z: 
+      min: 8
+      max: 32
+    n_hidden_units:
+      min: 8
+      max: 64
+
+
+---
+name: quadratic_mc_repeat_test
+
+params:
+  train_params:
+    save_model: True
+    load_model: False
+  model_params:
+    adam_lr: 0.0000657
+    d_z: 31
+    n_hidden_units: 54
+    seed: 1237
+  benchmark_params:
+    seed_task_test: 1236
+    seed_x_test: 2236
+    seed_noise_test: 3236
+
+list:
+  model_params:
+    seed: [1235, 1236, 1237, 1238, 1239]
+
+wandb:
+  job_type: repeat_test

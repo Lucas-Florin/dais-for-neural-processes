@@ -1,0 +1,133 @@
+---
+# Slurm bwuni cpu
+name: "SLURM"   # MUST BE "SLURM"
+partition: "single"  # "single" for cpu, "gpu_4" or gpu_8" for gpu
+job-name: "qd_vi_ba" # this will be the experiment's name in slurm
+path_to_template: scripts/sbatch_template_bwuni_simple.sh
+num_parallel_jobs: 50 # max number of jobs executed in parallel
+ntasks: 1   #  leave that like it is
+cpus-per-task: 1   # there are 10 cores for each GPU
+time: 4000   # in minutes
+
+---
+name: DEFAULT
+import_path: baseline.yaml
+
+params:
+  model_params:
+    loss_type: VI
+    aggregator_type: BA
+
+wandb:
+  group: quadratic_vi_ba
+  project: NP_baseline
+  hp_combinations_per_agent: 1
+
+---
+name: quadratic_vi_ba
+
+params:
+  train_params:
+    save_model: True
+    load_model: False
+    load_model_path: "./experiments/quadratic_vi_ba/log/rep_00"
+  model_params:
+    adam_lr: 0.00006146
+    d_z: 28
+    n_hidden_units: 62
+    seed: 1239
+  benchmark_params:
+    seed_task_test: 1236
+    seed_x_test: 2236
+    seed_noise_test: 3236
+  eval_params:
+    use_dais: True
+
+wandb:
+  job_type: run
+
+
+---
+name: quadratic_vi_ba_sweep
+repetitions: 40
+
+params:
+  copy_sweep_model_params: ["adam_lr", "d_z", "n_hidden_units"]
+  eval_params:
+    use_ais: False
+    show_examples: False
+
+wandb:
+  job_type: sweep
+  sweep_id: new
+  hp_combinations_per_agent: 6
+
+wandb_sweep:
+  name: quadratic_vi_ba_sweep
+  metric: 
+    name: mc_objective
+    goal: maximize
+  method: bayes
+  parameters: 
+    adam_lr:
+      distribution: log_uniform_values
+      max: 0.01
+      min: 0.00001
+    d_z: 
+      min: 8
+      max: 32
+    n_hidden_units:
+      min: 8
+      max: 64
+
+---
+name: quadratic_vi_ba_repeat
+repetitions: 1
+params:
+  train_params:
+    save_model: True
+    
+list:
+  model_params:
+    adam_lr: [0.000146, 0.00004701, 0.00004733, 0.00006146, 0.0001195]
+    d_z: [27, 27, 27, 28, 27]
+    n_hidden_units: [59, 48, 47, 62, 63]
+
+grid:
+  model_params:
+    seed: [1235, 1236, 1237, 1238, 1239]
+
+wandb:
+  job_type: repeat
+
+
+
+---
+name: quadratic_vi_ba_repeat_test
+
+params:
+  train_params:
+    save_model: False
+    load_model: True
+  model_params:
+    adam_lr: 0.00006146
+    d_z: 28
+    n_hidden_units: 62
+  benchmark_params:
+    seed_task_test: 1236
+    seed_x_test: 2236
+    seed_noise_test: 3236
+
+list:
+  model_params:
+    seed: [1235, 1236, 1237, 1238, 1239]
+  train_params:
+    load_model_path: 
+      - "./experiments/quadratic_vi_ba_repeat/quadratic_vi_ba_repeat__mod.al6.146e-05_mod.dz28_mod.nhu62_mod.s1235/log/rep_00"
+      - "./experiments/quadratic_vi_ba_repeat/quadratic_vi_ba_repeat__mod.al6.146e-05_mod.dz28_mod.nhu62_mod.s1236/log/rep_00"
+      - "./experiments/quadratic_vi_ba_repeat/quadratic_vi_ba_repeat__mod.al6.146e-05_mod.dz28_mod.nhu62_mod.s1237/log/rep_00"
+      - "./experiments/quadratic_vi_ba_repeat/quadratic_vi_ba_repeat__mod.al6.146e-05_mod.dz28_mod.nhu62_mod.s1238/log/rep_00"
+      - "./experiments/quadratic_vi_ba_repeat/quadratic_vi_ba_repeat__mod.al6.146e-05_mod.dz28_mod.nhu62_mod.s1239/log/rep_00"
+
+wandb:
+  job_type: repeat_test
