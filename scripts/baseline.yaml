@@ -39,6 +39,8 @@ params:
     n_samples: 160
     dais_n_annealing_steps: 10
     dais_step_size: 0.08
+    dais_adapt_step_size_to_std_z: False
+    dais_scalar_step_size: False
     dais_partial: True
     dais_schedule: 'linear'
 
@@ -91,7 +93,7 @@ params:
     dais_adapt_step_size_to_std_z: True
     dais_scalar_step_size: True
     dais_partial: True
-    dais_batch_size: 2
+    dais_batch_size: null
     dais_clip_grad: 1.0
     dais_seed: 2357
 
@@ -125,3 +127,4 @@ wandb:
   group: default
   job_type: run
   project: default
+  hp_combinations_per_agent: 1

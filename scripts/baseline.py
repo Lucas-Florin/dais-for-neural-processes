@@ -90,6 +90,8 @@ def build_model(config, logpath):
         n_samples=config["n_samples"],
         n_annealing_steps=config["dais_n_annealing_steps"],
         dais_step_size=config["dais_step_size"],
+        dais_adapt_step_size_to_std_z=config["dais_adapt_step_size_to_std_z"],
+        dais_scalar_step_size=config["dais_scalar_step_size"],
         dais_partial=config["dais_partial"],
         dais_schedule=config["dais_schedule"],
     )
