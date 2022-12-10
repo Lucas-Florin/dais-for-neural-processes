@@ -2,7 +2,7 @@
 # Slurm bwuni cpu
 name: "SLURM"   # MUST BE "SLURM"
 partition: "single"  # "single" for cpu, "gpu_4" or gpu_8" for gpu
-job-name: "qd_mc_u" # this will be the experiment's name in slurm
+job-name: "qd_vm" # this will be the experiment's name in slurm
 path_to_template: scripts/sbatch_template_bwuni_simple.sh
 num_parallel_jobs: 50 # max number of jobs executed in parallel
 ntasks: 1   #  leave that like it is
@@ -13,49 +13,51 @@ time: 4000   # in minutes
 name: DEFAULT
 import_path: baseline.yaml
 
+params:
+  model_params:
+    loss_type: VI
+    aggregator_type: MA
+
 wandb:
-  group: quadratic_mc
+  group: quadratic_vi_ma
   project: NP_baseline
   hp_combinations_per_agent: 1
 
 ---
-name: quadratic_mc_uncertain
+name: quadratic_vi_ma
 
 params:
   train_params:
     save_model: True
     load_model: False
-    load_model_path: "./experiments/quadratic_mc/log/rep_00"
+    load_model_path: "./experiments/quadratic_vi_ma/log/rep_00"
   model_params:
-    adam_lr: 0.0001568
-    d_z: 28
-    n_hidden_units: 60
-    decoder_output_scale: 0.1115
-    seed: 1237
+    adam_lr: 0.0004639
+    d_z: 18
+    n_hidden_units: 58
+    seed: 1239
   benchmark_params:
     seed_task_test: 1236
     seed_x_test: 2236
     seed_noise_test: 3236
-  eval_params:
-    use_dais: True
+
 
 wandb:
   job_type: run
 
 ---
-name: quadratic_mc_uncertain_long
+name: quadratic_vi_ma_long
 
 params:
   train_params:
     save_model: False
     load_model: True
-    load_model_path: "./experiments/quadratic_mc_uncertain/log/rep_00"
+    load_model_path: "./experiments/quadratic_vi_ma/log/rep_00"
   model_params:
-    adam_lr: 0.0001568
-    d_z: 28
-    n_hidden_units: 60
-    decoder_output_scale: 0.1115
-    seed: 1237
+    adam_lr: 0.0004639
+    d_z: 18
+    n_hidden_units: 58
+    seed: 1239
   benchmark_params:
     seed_task_test: 1236
     seed_x_test: 2236
@@ -68,7 +70,7 @@ params:
     use_dais: True
     dais_chain_length: null
     dais_step_size: 0.01
-    dais_scalar_step_size: True
+    dais_scalar_step_size: False
     dais_clip_grad: 1.0
 
 # list:
@@ -90,14 +92,15 @@ wandb:
 
 
 ---
-name: quadratic_mc_sweep
+name: quadratic_vi_ma_sweep
 repetitions: 40
 
 params:
-  copy_sweep_model_params: ["adam_lr", "d_z", "n_hidden_units", "decoder_output_scale"]
+  copy_sweep_model_params: ["adam_lr", "d_z", "n_hidden_units"]
   eval_params:
     use_ais: False
     show_examples: False
+
 
 wandb:
   job_type: sweep
@@ -105,7 +108,7 @@ wandb:
   hp_combinations_per_agent: 6
 
 wandb_sweep:
-  name: quadratic_mc_sweep_std_y
+  name: quadratic_vi_ma_sweep
   metric: 
     name: mc_objective
     goal: maximize
@@ -121,14 +124,9 @@ wandb_sweep:
     n_hidden_units:
       min: 8
       max: 64
-    decoder_output_scale:
-      distribution: log_uniform_values
-      max: 1.0
-      min: 0.001
-
 
 ---
-name: quadratic_mc_repeat
+name: quadratic_vi_ma_repeat
 repetitions: 1
 params:
   train_params:
@@ -136,10 +134,9 @@ params:
     
 list:
   model_params:
-    adam_lr: [0.00008781, 0.0001234, 0.0001568, 0.00009019, 0.0001001]
-    d_z: [30, 8, 28, 31, 31]
-    decoder_output_scale: [0.09979, 0.1163, 0.1115, 0.1176, 0.0958]
-    n_hidden_units: [45, 34, 60, 43, 46]
+    adam_lr: [0.009275, 0.0004639, 0.009936, 0.003862, 0.0003479]
+    d_z: [8, 18, 20, 10, 30]
+    n_hidden_units: [33, 58, 38, 31, 33]
 
 grid:
   model_params:
@@ -149,19 +146,18 @@ wandb:
   job_type: repeat
 
 
+
 ---
-name: quadratic_mc_repeat_test
+name: quadratic_vi_ma_repeat_test
 
 params:
   train_params:
     save_model: False
     load_model: True
   model_params:
-    adam_lr: 0.0001568
-    d_z: 28
-    n_hidden_units: 60
-    decoder_output_scale: 0.1115
-    seed: 1237
+    adam_lr: 0.0004639
+    d_z: 18
+    n_hidden_units: 58
   benchmark_params:
     seed_task_test: 1236
     seed_x_test: 2236
@@ -172,11 +168,11 @@ list:
     seed: [1235, 1236, 1237, 1238, 1239]
   train_params:
     load_model_path: 
-      - "./experiments/quadratic_mc_repeat/quadratic_mc_repeat__mod.al0.0001568_mod.dz28_mod.dos0.1115_mod.nhu60_mod.s1235/log/rep_00"
-      - "./experiments/quadratic_mc_repeat/quadratic_mc_repeat__mod.al0.0001568_mod.dz28_mod.dos0.1115_mod.nhu60_mod.s1236/log/rep_00"
-      - "./experiments/quadratic_mc_repeat/quadratic_mc_repeat__mod.al0.0001568_mod.dz28_mod.dos0.1115_mod.nhu60_mod.s1237/log/rep_00"
-      - "./experiments/quadratic_mc_repeat/quadratic_mc_repeat__mod.al0.0001568_mod.dz28_mod.dos0.1115_mod.nhu60_mod.s1238/log/rep_00"
-      - "./experiments/quadratic_mc_repeat/quadratic_mc_repeat__mod.al0.0001568_mod.dz28_mod.dos0.1115_mod.nhu60_mod.s1239/log/rep_00"
+      - "./experiments/quadratic_vi_ma_repeat/quadratic_vi_ma_repeat__mod.al0.0004639_mod.dz18_mod.nhu58_mod.s1235/log/rep_00"
+      - "./experiments/quadratic_vi_ma_repeat/quadratic_vi_ma_repeat__mod.al0.0004639_mod.dz18_mod.nhu58_mod.s1236/log/rep_00"
+      - "./experiments/quadratic_vi_ma_repeat/quadratic_vi_ma_repeat__mod.al0.0004639_mod.dz18_mod.nhu58_mod.s1237/log/rep_00"
+      - "./experiments/quadratic_vi_ma_repeat/quadratic_vi_ma_repeat__mod.al0.0004639_mod.dz18_mod.nhu58_mod.s1238/log/rep_00"
+      - "./experiments/quadratic_vi_ma_repeat/quadratic_vi_ma_repeat__mod.al0.0004639_mod.dz18_mod.nhu58_mod.s1239/log/rep_00"
 
 wandb:
   job_type: repeat_test

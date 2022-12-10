@@ -1,0 +1,204 @@
+---
+# Slurm bwuni cpu
+name: "SLURM"   # MUST BE "SLURM"
+partition: "single"  # "single" for cpu, "gpu_4" or gpu_8" for gpu
+job-name: "ls_ds_asz" # this will be the experiment's name in slurm
+path_to_template: scripts/sbatch_template_bwuni_simple.sh
+num_parallel_jobs: 50 # max number of jobs executed in parallel
+ntasks: 1   #  leave that like it is
+cpus-per-task: 1   # there are 10 cores for each GPU
+time: 4000   # in minutes
+
+---
+name: DEFAULT
+import_path: baseline.yaml
+params:
+  model_params:
+    n_samples: 16
+    loss_type: DAIS
+    dais_adapt_step_size_to_std_z: True
+  benchmark_params:
+    benchmark: "LineSine1D"
+wandb:
+  group: linesine_dais_adapt_sz
+  project: NP_baseline
+
+---
+name: linesine_dais_adapt_sz
+
+params:
+  train_params:
+    save_model: True
+    load_model: False
+    load_model_path: "./experiments/linesine_dais_adapt_sz/log/rep_00"
+  model_params:
+    adam_lr: 0.00171
+    d_z: 15
+    n_hidden_units: 57
+    dais_step_size: 0.007035
+    dais_partial: true
+    dais_schedule: linear
+    dais_scalar_step_size: true
+    seed: 1239
+  benchmark_params:
+    seed_task_test: 1236
+    seed_x_test: 2236
+    seed_noise_test: 3236
+wandb:
+  job_type: run
+
+---
+name: linesine_dais_adapt_sz_long
+
+params:
+  train_params:
+    save_model: False
+    load_model: True
+    load_model_path: "./experiments/linesine_dais_adapt_sz/log/rep_00"
+  model_params:
+    adam_lr: 0.00171
+    d_z: 15
+    n_hidden_units: 57
+    dais_step_size: 0.007035
+    dais_partial: true
+    dais_schedule: linear
+    dais_scalar_step_size: true
+    seed: 1239
+  benchmark_params:
+    seed_task_test: 1236
+    seed_x_test: 2236
+    seed_noise_test: 3236
+  eval_params:
+    use_mc: False
+    mc_n_samples: null
+    use_ais: False
+    ais_chain_length: null
+    use_dais: True
+    dais_chain_length: null
+    dais_step_size: 0.01
+    dais_scalar_step_size: False
+    dais_clip_grad: 1.0
+
+# list:
+#   eval_params:
+#     mc_n_samples: [100, 1000, 10000, 100000, 1000000]
+#     mc_batch_size: [16, 16, 16, 1, 1]
+#     mc_subbatch_size: [null, null, null, null, 100000]
+
+# list:
+#   eval_params:
+#     ais_chain_length: [10, 100, 1000, 10000]
+
+grid:
+  eval_params:
+    dais_chain_length: [10, 100, 1000, 10000, 100000]
+
+wandb:
+  job_type: long
+
+
+
+---
+name: linesine_dais_adapt_sz_sweep
+repetitions: 40
+
+params:
+  copy_sweep_model_params: ["adam_lr", "d_z", "n_hidden_units", "dais_step_size", "dais_partial", "dais_schedule", "dais_scalar_step_size"]
+  eval_params:
+    use_ais: False
+    show_examples: False
+
+wandb:
+  job_type: sweep
+  sweep_id: new
+  hp_combinations_per_agent: 6
+
+wandb_sweep:
+  name: linesine_dais_adapt_sz_sweep
+  metric: 
+    name: mc_objective
+    goal: maximize
+  method: bayes
+  parameters: 
+    adam_lr:
+      distribution: log_uniform_values
+      max: 0.01
+      min: 0.00001
+    d_z: 
+      min: 8
+      max: 32
+    n_hidden_units:
+      min: 8
+      max: 64
+    dais_step_size:
+      distribution: log_uniform_values
+      max: 2.4
+      min: 0.0024
+    dais_partial:
+      distribution: categorical
+      values: [True, False]
+    dais_schedule:
+      distribution: categorical
+      values: ['linear', 'curve']
+    dais_scalar_step_size:
+      distribution: categorical
+      values: [True, False]
+
+---
+name: linesine_dais_adapt_sz_repeat
+repetitions: 1
+
+params:
+  train_params:
+    save_model: True
+
+list:
+  model_params:
+    adam_lr: [0.003834, 0.00171, 0.001229, 0.006927, 0.005239]
+    d_z: [15, 15, 28, 31, 22]
+    n_hidden_units: [58, 57, 62, 54, 58]
+    dais_step_size: [0.003494, 0.007035, 0.002974, 0.0123, 0.02609]
+    dais_partial: [false, true, false, false, false]
+    dais_schedule: [curve, linear, linear, linear, curve]
+    dais_scalar_step_size: [true, true, true, false, true]
+
+grid:
+  model_params:
+    seed: [1235, 1236, 1237, 1238, 1239]
+
+wandb:
+  job_type: repeat
+
+---
+name: linesine_dais_adapt_sz_repeat_test
+
+params:
+  train_params:
+    save_model: False
+    load_model: True
+  model_params:
+    adam_lr: 0.00171
+    d_z: 15
+    n_hidden_units: 57
+    dais_step_size: 0.007035
+    dais_partial: true
+    dais_schedule: linear
+    dais_scalar_step_size: true
+  benchmark_params:
+    seed_task_test: 1236
+    seed_x_test: 2236
+    seed_noise_test: 3236
+
+list:
+  model_params:
+    seed: [1235, 1236, 1237, 1238, 1239]
+  train_params:
+    load_model_path: 
+      - "./experiments/linesine_dais_adapt_sz_repeat/linesine_dais_adapt_sz_repeat__mod.al0.00171_mod.dz15_mod.nhu57_mod.dss0.007035_mod.dpTrue_mod.dslinear_mod.dsssTrue_mod.s1235/log/rep_00/"
+      - "./experiments/linesine_dais_adapt_sz_repeat/linesine_dais_adapt_sz_repeat__mod.al0.00171_mod.dz15_mod.nhu57_mod.dss0.007035_mod.dpTrue_mod.dslinear_mod.dsssTrue_mod.s1236/log/rep_00/"
+      - "./experiments/linesine_dais_adapt_sz_repeat/linesine_dais_adapt_sz_repeat__mod.al0.00171_mod.dz15_mod.nhu57_mod.dss0.007035_mod.dpTrue_mod.dslinear_mod.dsssTrue_mod.s1237/log/rep_00/"
+      - "./experiments/linesine_dais_adapt_sz_repeat/linesine_dais_adapt_sz_repeat__mod.al0.00171_mod.dz15_mod.nhu57_mod.dss0.007035_mod.dpTrue_mod.dslinear_mod.dsssTrue_mod.s1238/log/rep_00/"
+      - "./experiments/linesine_dais_adapt_sz_repeat/linesine_dais_adapt_sz_repeat__mod.al0.00171_mod.dz15_mod.nhu57_mod.dss0.007035_mod.dpTrue_mod.dslinear_mod.dsssTrue_mod.s1239/log/rep_00/"
+
+wandb:
+  job_type: repeat_test

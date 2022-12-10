@@ -1,0 +1,200 @@
+---
+# Slurm bwuni cpu
+name: "SLURM"   # MUST BE "SLURM"
+partition: "single"  # "single" for cpu, "gpu_4" or gpu_8" for gpu
+job-name: "qd_dais_fsy" # this will be the experiment's name in slurm
+path_to_template: scripts/sbatch_template_bwuni_simple.sh
+num_parallel_jobs: 50 # max number of jobs executed in parallel
+ntasks: 1   #  leave that like it is
+cpus-per-task: 1   # there are 10 cores for each GPU
+time: 4000   # in minutes
+
+---
+name: DEFAULT
+import_path: baseline.yaml
+params:
+  model_params:
+    n_samples: 16
+    loss_type: DAIS
+
+wandb:
+  group: quadratic_dais_fixed_std_y
+  project: NP_baseline
+
+---
+name: quadratic_dais_fixed_std_y
+
+params:
+  train_params:
+    save_model: True
+    load_model: False
+    load_model_path: "./experiments/quadratic_dais_fixed_std_y/log/rep_00"
+  model_params:
+    adam_lr: 0.00002419
+    d_z: 24
+    n_hidden_units: 58
+    dais_step_size: 0.01002
+    dais_n_annealing_steps: 5
+    dais_partial: false
+    dais_schedule: curve
+    seed: 1238
+  benchmark_params:
+    seed_task_test: 1236
+    seed_x_test: 2236
+    seed_noise_test: 3236
+wandb:
+  job_type: run
+
+---
+name: quadratic_dais_fixed_std_y_long
+
+params:
+  train_params:
+    save_model: True
+    load_model: False
+    load_model_path: "./experiments/quadratic_dais_fixed_std_y/log/rep_00"
+  model_params:
+    adam_lr: 0.00002419
+    d_z: 24
+    n_hidden_units: 58
+    dais_step_size: 0.01002
+    dais_n_annealing_steps: 5
+    dais_partial: false
+    dais_schedule: curve
+    seed: 1238
+  benchmark_params:
+    seed_task_test: 1236
+    seed_x_test: 2236
+    seed_noise_test: 3236
+  eval_params:
+    use_mc: False
+    mc_n_samples: null
+    use_ais: True
+    ais_chain_length: null
+    use_dais: False
+    dais_chain_length: null
+    dais_step_size: 0.01
+    dais_scalar_step_size: True
+    dais_clip_grad: 1.0
+
+# list:
+#   eval_params:
+#     mc_n_samples: [100, 1000, 10000, 100000, 1000000]
+#     mc_batch_size: [16, 16, 16, 1, 1]
+#     mc_subbatch_size: [null, null, null, null, 100000]
+
+list:
+  eval_params:
+    ais_chain_length: [10, 100, 1000, 10000]
+
+# grid:
+#   eval_params:
+#     dais_chain_length: [10, 100, 1000, 10000, 100000]
+
+wandb:
+  job_type: long
+
+---
+name: quadratic_dais_fixed_std_y_sweep
+repetitions: 40
+
+params:
+  copy_sweep_model_params: ["adam_lr", "d_z", "n_hidden_units", "dais_step_size", "dais_n_annealing_steps", "dais_partial", "dais_schedule"]
+  eval_params:
+    use_ais: False
+    show_examples: False
+
+wandb:
+  job_type: sweep
+  sweep_id: new
+  hp_combinations_per_agent: 6
+
+wandb_sweep:
+  name: quadratic_dais_fixed_std_y_sweep
+  metric: 
+    name: mc_objective
+    goal: maximize
+  method: bayes
+  parameters: 
+    adam_lr:
+      distribution: log_uniform_values
+      max: 0.01
+      min: 0.00001
+    d_z: 
+      min: 8
+      max: 32
+    n_hidden_units:
+      min: 8
+      max: 64
+    dais_step_size:
+      distribution: log_uniform_values
+      max: 2.4
+      min: 0.0024
+    dais_n_annealing_steps:
+      min: 1
+      max: 10
+    dais_partial:
+      distribution: categorical
+      values: [True, False]
+    dais_schedule:
+      distribution: categorical
+      values: ['linear', 'curve']
+
+---
+name: quadratic_dais_fixed_std_y_repeat
+repetitions: 1
+
+params:
+  train_params:
+    save_model: True
+
+list:
+  model_params:
+    adam_lr: [0.00002419, 0.00002003, 0.00004836, 0.00003882, 0.00002352]
+    d_z: [24, 29, 19, 23, 17]
+    n_hidden_units: [58, 45, 51, 50, 56]
+    dais_step_size: [0.01002, 0.01566, 0.007274, 0.00396, 0.005066]
+    dais_n_annealing_steps: [5, 9, 8, 3, 9]
+    dais_partial: [false, false, false, true, false]
+    dais_schedule: [curve, curve, curve, linear, curve]
+
+grid:
+  model_params:
+    seed: [1235, 1236, 1237, 1238, 1239]
+
+wandb:
+  job_type: repeat
+
+---
+name: quadratic_dais_fixed_std_y_repeat_test
+
+params:
+  train_params:
+    save_model: True
+    load_model: False
+  model_params:
+    adam_lr: 0.00002419
+    d_z: 24
+    n_hidden_units: 58
+    dais_step_size: 0.01002
+    dais_n_annealing_steps: 5
+    dais_partial: false
+    dais_schedule: curve
+  benchmark_params:
+    seed_task_test: 1236
+    seed_x_test: 2236
+    seed_noise_test: 3236
+
+list:
+  model_params:
+    seed: [1235, 1236, 1237, 1238, 1239]
+  # train_params:
+  #   load_model_path: 
+  #     - "./experiments/quadratic_dais_fixed_std_y_repeat/quadratic_dais_fixed_std_y_repeat__mod.al2.419e-05_mod.dz24_mod.nhu58_mod.dss0.01002_mod.dnas5_mod.dpFalse_mod.dscurve_mod.s1235/log/rep_00"
+  #     - "./experiments/quadratic_dais_fixed_std_y_repeat/quadratic_dais_fixed_std_y_repeat__mod.al2.419e-05_mod.dz24_mod.nhu58_mod.dss0.01002_mod.dnas5_mod.dpFalse_mod.dscurve_mod.s1236/log/rep_00/"
+  #     - "./experiments/quadratic_dais_fixed_std_y_repeat/quadratic_dais_fixed_std_y_repeat__mod.al2.419e-05_mod.dz24_mod.nhu58_mod.dss0.01002_mod.dnas5_mod.dpFalse_mod.dscurve_mod.s1237/log/rep_00/"
+  #     - "./experiments/quadratic_dais_fixed_std_y_repeat/quadratic_dais_fixed_std_y_repeat__mod.al2.419e-05_mod.dz24_mod.nhu58_mod.dss0.01002_mod.dnas5_mod.dpFalse_mod.dscurve_mod.s1238/log/rep_00/"
+  #     - "./experiments/quadratic_dais_fixed_std_y_repeat/quadratic_dais_fixed_std_y_repeat__mod.al2.419e-05_mod.dz24_mod.nhu58_mod.dss0.01002_mod.dnas5_mod.dpFalse_mod.dscurve_mod.s1239/log/rep_00/"
+
+wandb:
+  job_type: repeat_test

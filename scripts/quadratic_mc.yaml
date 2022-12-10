@@ -41,6 +41,51 @@ params:
 wandb:
   job_type: run
 
+---
+name: quadratic_mc_long
+
+params:
+  train_params:
+    save_model: False
+    load_model: True
+    load_model_path: "./experiments/quadratic_mc/log/rep_00"
+  model_params:
+    adam_lr: 0.0000657
+    d_z: 31
+    n_hidden_units: 54
+    seed: 1235
+  benchmark_params:
+    seed_task_test: 1236
+    seed_x_test: 2236
+    seed_noise_test: 3236
+  eval_params:
+    use_mc: False
+    mc_n_samples: null
+    use_ais: False
+    ais_chain_length: null
+    use_dais: True
+    dais_chain_length: null
+    dais_step_size: 0.01
+    dais_scalar_step_size: True
+    dais_clip_grad: 1.0
+
+# list:
+#   eval_params:
+#     mc_n_samples: [100, 1000, 10000, 100000, 1000000]
+#     mc_batch_size: [16, 16, 16, 1, 1]
+#     mc_subbatch_size: [null, null, null, null, 100000]
+
+# list:
+#   eval_params:
+#     ais_chain_length: [10, 100, 1000, 10000]
+
+grid:
+  eval_params:
+    dais_chain_length: [10, 100, 1000, 10000, 100000]
+
+wandb:
+  job_type: long
+
 
 ---
 name: quadratic_mc_sweep
