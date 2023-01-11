@@ -322,6 +322,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
                     adapt_step_size_to_std_z=eval_params['dais_adapt_step_size_to_std_z'],
                     scalar_step_size=eval_params['dais_scalar_step_size'],
                     partial=eval_params['dais_partial'],
+                    schedule=eval_params['dais_schedule'],
                     batch_size=eval_params['dais_batch_size'],
                     clip_grad=eval_params['dais_clip_grad'],
                     seed=eval_params['dais_seed'],

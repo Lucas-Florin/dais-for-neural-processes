@@ -288,9 +288,9 @@ def lmlhd_iwmc(decode, context_distribution, target_distribution, task, n_sample
     return log_lhd, np.add(lmlhd_samples, log_importance_weights), lmlhd_samples, log_importance_weights
 
 
-def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=500, device=None, 
+def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=1000, device=None, 
                num_leapfrog_steps=10, step_size=0.01, partial=False, batch_size=None, clip_grad=1.0, 
-               adapt_step_size_to_std_z=False, scalar_step_size=False, seed=None):
+               adapt_step_size_to_std_z=False, scalar_step_size=False, schedule='linear', seed=None):
     task_x, task_y = task # (n_tsk, n_tst, d_x), (n_tsk, n_tst, d_y)
     assert task_x.ndim == 3
     assert task_y.ndim == 3
@@ -300,11 +300,11 @@ def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=
     task_x = torch.from_numpy(task_x).float()
     task_y = torch.from_numpy(task_y).float()
 
-    forward_schedule = torch.linspace(0, 1, chain_length, device=device)
     mu_z, var_z = context_distribution
     n_tsk = task_x.shape[0]
     d_z = mu_z.shape[-1]
     rng = None if seed is None else np.random.RandomState(seed)
+    betas = np.linspace(0, 1, chain_length + 1) if schedule == 'linear' else None
     batch_size = n_tsk if batch_size is None else batch_size
     lmlhd_list = list()    
     for mu_z_batch, var_z_batch, task_x_batch, task_y_batch in get_task_batch_iterator(mu_z, var_z, task_x, task_y, batch_size=batch_size):
@@ -333,6 +333,7 @@ def lmlhd_dais(decode, context_distribution, task, n_samples = 10, chain_length=
             step_size = step_size_batch,
             partial=partial,
             clip_grad=clip_grad,
+            betas=betas,
             is_train=False,
             rng=rng,
         )
