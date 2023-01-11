@@ -93,6 +93,7 @@ def build_model(config, logpath):
         dais_adapt_step_size_to_std_z=config["dais_adapt_step_size_to_std_z"],
         dais_scalar_step_size=config["dais_scalar_step_size"],
         dais_partial=config["dais_partial"],
+        dais_partial_gamma=config["dais_partial_gamma"],
         dais_schedule=config["dais_schedule"],
     )
 
