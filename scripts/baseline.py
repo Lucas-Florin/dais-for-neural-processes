@@ -272,10 +272,11 @@ class BaselineExperiment(experiment.AbstractExperiment):
         dais_list = list()
         dais_tasks_list = dict()        
         dais_new_list = list()
-        dais_new_tasks_list = dict()        
+        dais_new_tasks_list = dict()     
         for cs in tqdm(context_size_list):
             model.adapt(x = x_test[:, :cs, :], y = y_test[:, :cs, :])
-            mu_z, var_z = model.aggregator.last_agg_state
+            mu_z, var_z = model.aggregator.last_latent_state
+            mu_z, var_z = mu_z.detach(), var_z.detach()
             if eval_params['use_mc']:
                 lmlhd_estimate_mc, _ = lmlhd_mc(
                     lambda x,z: np_decode(model, x, z), 
