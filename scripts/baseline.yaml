@@ -42,6 +42,7 @@ params:
     dais_adapt_step_size_to_std_z: False
     dais_scalar_step_size: False
     dais_partial: True
+    dais_partial_gamma: 0.9
     dais_schedule: 'linear'
 
   train_params:
