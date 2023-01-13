@@ -40,8 +40,6 @@ params:
     seed_task_test: 1236
     seed_x_test: 2236
     seed_noise_test: 3236
-  eval_params:
-    use_dais: True
 
 wandb:
   job_type: run

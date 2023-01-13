@@ -4,6 +4,7 @@ from pathlib import Path
 from collections.abc import Sequence
 
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -367,6 +368,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
             for l in logger:
                 if type(l) is WandBLogger:
                     l.log_plot(context_size_list, mc_list, ["context_size", "MC objective"], 'mc_plot', 'MC estimator for LL')
+                    l.log_table(pd.DataFrame(mc_tasks_list), "mc_objective_tasks_list")
 
 
         if eval_params['use_ais']:
@@ -381,6 +383,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
             for l in logger:
                 if type(l) is WandBLogger:
                     l.log_plot(context_size_list, ais_list, ["context_size", "AIS objective"], 'ais_plot', 'AIS estimator for LL')
+                    l.log_table(pd.DataFrame(ais_tasks_list), "ais_objective_tasks_list")
         
         if eval_params['use_dais']:
             dais_objective = np.mean(dais_list)
@@ -394,6 +397,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
             for l in logger:
                 if type(l) is WandBLogger:
                     l.log_plot(context_size_list, dais_list, ["context_size", "DAIS objective"], 'dais_plot', 'DAIS estimator for LL')
+                    l.log_table(pd.DataFrame(dais_tasks_list), "dais_objective_tasks_list")
                     
         if eval_params['use_dais_new']:
             dais_new_objective = np.mean(dais_new_list)
@@ -408,6 +412,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
                 if type(l) is WandBLogger:
                     l.log_plot(context_size_list, dais_list, ["context_size", "DAIS_new objective"], 
                                'dais_new_plot', 'DAIS_new estimator for LL')
+                    l.log_table(pd.DataFrame(dais_new_tasks_list), "dais_new_objective_tasks_list")
                     
         if eval_params['show_examples']:
             fig = plot_examples(
