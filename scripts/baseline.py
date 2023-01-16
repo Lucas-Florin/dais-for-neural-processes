@@ -306,6 +306,7 @@ class BaselineExperiment(experiment.AbstractExperiment):
                     step_size=eval_params['ais_step_size'],
                     adapt_step_size_to_std_z=eval_params['ais_adapt_step_size_to_std_z'],
                     scalar_step_size=eval_params['ais_scalar_step_size'],
+                    random_time_direction=eval_params['ais_random_time_direction'],
                     seed=eval_params['ais_seed'],
                 )
                 ais_tasks_list[cs] = (lmlhd_estimate_ais.detach().numpy())

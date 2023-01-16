@@ -20,6 +20,7 @@ def ais_trajectory(
     initial_step_size: Optional[int] = 0.01,
     device: Optional[torch.device] = None,
     num_leapfrog_steps: Optional[int] = 10,
+    random_time_direction: bool = False,
     rng: torch.Generator = None,
 ):
     """Compute annealed importance sampling trajectories for a batch of data.
@@ -96,7 +97,12 @@ def ais_trajectory(
 
         # resample velocity
         current_v = torch.normal(0.0, 1.0, size=current_z.shape, generator=rng)
-        z, v = hmc.hmc_trajectory(current_z, current_v, grad_U, epsilon, L=num_leapfrog_steps)
+        if random_time_direction:
+            forward_time = torch.randint(2, (1, ), dtype=bool, generator=rng).item()
+        else: 
+            forward_time = True
+        z, v = hmc.hmc_trajectory(current_z, current_v, grad_U, epsilon, L=num_leapfrog_steps, 
+                                  forward_time=forward_time)
 
         current_z, epsilon, accept_hist = hmc.accept_reject(
             current_z,

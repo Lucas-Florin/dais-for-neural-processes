@@ -68,6 +68,7 @@ params:
     ais_step_size: 0.01
     ais_adapt_step_size_to_std_z: False
     ais_scalar_step_size: False
+    ais_random_time_direction: False
     ais_seed: 8465
 
     use_dais_new: False

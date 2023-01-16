@@ -8,7 +8,9 @@ def hmc_trajectory(current_z: torch.Tensor,
                    current_v: torch.Tensor,
                    grad_U: Callable,
                    epsilon: torch.Tensor,
-                   L: Optional[int] = 10):
+                   L: Optional[int] = 10,
+                   forward_time: bool = True,
+                   ):
     """Propose new state-velocity pair with leap-frog integrator.
 
     This function does not yet do the accept-reject step.
@@ -25,15 +27,16 @@ def hmc_trajectory(current_z: torch.Tensor,
         proposed state z and velocity v after the leap-frog steps
     """
     epsilon = epsilon[:, :, None]
+    epsilon_rand = epsilon if forward_time else -epsilon
     z = current_z
-    v = current_v - .5 * epsilon * grad_U(z)
+    v = current_v - .5 * epsilon_rand * grad_U(z)
 
     for i in range(1, L + 1):
-        z = z + epsilon * v
+        z = z + epsilon_rand * v
         if i != L:
-            v = v - epsilon * grad_U(z)
+            v = v - epsilon_rand * grad_U(z)
 
-    v = v - .5 * epsilon * grad_U(z)
+    v = v - .5 * epsilon_rand * grad_U(z)
     v = -v
 
     return z, v
