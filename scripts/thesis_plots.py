@@ -222,3 +222,75 @@ def prepare_model_for_plotting(config_file, experiment_name):
     train_params['load_model_path'] = '.' + train_params['load_model_path']
     model.load_model(eval(train_params["n_tasks_train"]), train_params['load_model_path'])
     return model, benchmark, params
+
+
+def plot_ml_over_css(runs, fig=None, ax=None, legend_prefix='', x_axis_offset=0.0, color='blue', 
+                     use_mc=True, use_ais=True):
+    n_runs = len(runs)
+    context_set_sizes = np.array([1, 3, 9], dtype=float) + x_axis_offset
+    n_css = len(context_set_sizes)
+    figsize = (8, 4)
+    if fig is None:
+        fig, ax = plt.subplots(figsize=figsize)
+
+    # run_config = run.config
+    # context_set_sizes = run_config['eval_params']['context_sizes']
+    if len(runs) > 1:
+        mc_objective_list = np.zeros((n_runs, n_css))
+        ais_objective_list = np.zeros((n_runs, n_css))
+
+        for i, run in enumerate(runs):
+            summary = run.summary
+            mc_objective_list[i, :] = summary['mc_objective_list']
+            ais_objective_list[i, :] = summary['ais_objective_list']
+
+        mc_median = np.median(mc_objective_list, 0)
+        ais_median = np.median(ais_objective_list, 0)
+        mc_max = mc_objective_list.max(0)
+        ais_max = ais_objective_list.max(0)
+        mc_min = mc_objective_list.min(0)
+        ais_min = ais_objective_list.min(0)
+
+        mc_error = np.stack([
+            mc_max - mc_median,
+            -(mc_min - mc_median)
+        ])
+        ais_error = np.stack([
+            ais_max - ais_median,
+            -(ais_min - ais_median)
+        ])
+
+        ax.errorbar(context_set_sizes, mc_median, mc_error, 
+                    label=f'{legend_prefix}Likelihood weighting', color=color)
+        ax.errorbar(context_set_sizes + 0.05, ais_median, ais_error, 
+                    label=f'{legend_prefix}AIS', linestyle='dashed', color=color)
+
+    elif len(runs) == 1:
+        run = runs[0]
+        summary = run.summary
+        if use_mc:
+            mc_objective_list = summary['mc_objective_list']
+            ax.plot(context_set_sizes, mc_objective_list, 
+                    label=f'{legend_prefix}Likelihood weighting', color=color)
+        if use_ais:
+            ais_objective_list = summary['ais_objective_list']        
+            ax.plot(context_set_sizes + 0.05, ais_objective_list, 
+                    label=f'{legend_prefix}AIS', linestyle='dashed', color=color)
+
+    else:
+        raise ValueError
+
+    ax.set_ylabel('Predictive likelihood')
+    ax.set_xlabel('Context set size')
+    ax.legend( 
+        bbox_to_anchor=(0.2, 0., 0.6, 0.),
+        bbox_transform=fig.transFigure,
+        loc='upper left',
+        mode='expand', 
+        # ncol=ncols,
+        borderaxespad=0.,
+    )
+    
+    return fig, ax
+    
+    
