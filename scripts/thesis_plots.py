@@ -60,6 +60,7 @@ def plot_examples(
     n_samples: int = 3,
     include_evaluation_method_names=False,
     figsize=(8,4),
+    plot_output_std=False,
     tasks=None,
     device=None,
 ):
@@ -132,41 +133,24 @@ def plot_examples(
                 # xticks=[], 
                 # yticks=[],
             )
+            y_true = benchmark(x_plt, benchmark.params[task])
+            ax.plot(x_plt, y_true, label='True function', color='xkcd:orange', linewidth=3.0)
+            label_prediction = 'Predition'
+            label_std = 'Standard deviation'
             for s in range(n_samples):
                 x_sample = x_plt.flatten()
                 y_sample = mu_y[l, s, :, :].flatten()
-                ax.plot(x_sample, y_sample, label='Prediction', color='blue')
-                # fig.add_trace(go.Scatter(x=x_sample, 
-                #                         y=y_sample, 
-                #                         mode='lines', name='prediction',
-                #                         legendgroup='prediction', 
-                #                         showlegend=(s==0 and l==0 and i==len(context_set_sizes)-1),
-                #                         marker={'color': 'blue', 'opacity': 1.0}), 
-                #             row=i+1, col=l+1,)
-                
-                # x_std_sample = np.concatenate((x_sample, x_sample[::-1]))
-                # y_std_sample = np.concatenate((y_sample, y_sample[::-1])) + np.concatenate((std_y[l, s, :, :].flatten(), 
-                #                                               - std_y[l, s, :, :].flatten()[::-1]))
-                std_y_sample = std_y[l, s, :, :].flatten()
-                ax.fill_between(
-                    x_sample, 
-                    y_sample - std_y_sample, 
-                    y_sample + std_y_sample, 
-                    color='blue',
-                    alpha=0.2, 
-                    label='Standard deviation')
-                # fig.add_trace(
-                #     go.Scatter(
-                #         x = x_std_sample,
-                #         y = y_std_sample,
-                #         mode='lines',
-                #         fill='toself',
-                #         showlegend=False,
-                #         line_color='rgba(255,255,255,0)',
-                #         fillcolor='rgba(0,100,80,0.4)',
-                #     ),
-                #     row=i+1, col=l+1,
-                # )
+                ax.plot(x_sample, y_sample, label=label_prediction, color='blue', linewidth=1.0)
+                if plot_output_std:
+                    std_y_sample = std_y[l, s, :, :].flatten()
+                    ax.fill_between(
+                        x_sample, 
+                        y_sample - std_y_sample, 
+                        y_sample + std_y_sample, 
+                        color='blue',
+                        alpha=0.2, 
+                        label=label_std)
+                label_prediction, label_std = None, None
             ax.plot(
                 x_test[l, cs:, :].flatten(), 
                 y_test[l, cs:, :].flatten(), 
@@ -174,12 +158,6 @@ def plot_examples(
                 color='green',
                 markersize=3, 
                 label='Test set')
-            # fig.add_trace(go.Scatter(x=x_test[l, cs:, :].flatten(), 
-            #                          y=y_test[l, cs:, :].flatten(), 
-            #                          mode='markers', name='test set',
-            #                          legendgroup='test set', showlegend=(l==0 and i==len(context_set_sizes)-1),
-            #                          marker={'color': 'green'}), 
-            #               row=i+1, col=l+1,)
             ax.plot(
                 x_test[l, :cs, :].flatten(), 
                 y_test[l, :cs, :].flatten(), 
@@ -187,14 +165,17 @@ def plot_examples(
                 color='red',
                 markersize=3, 
                 label='Context set')            
-            # fig.add_trace(go.Scatter(x=x_test[l, :cs, :].flatten(), 
-            #                          y=y_test[l, :cs, :].flatten(), 
-            #                          mode='markers', name='context set',
-            #                          legendgroup='context set', showlegend=(l==0 and i==len(context_set_sizes)-1),
-            #                          marker={'color': 'red'}), 
-            #               row=i+1, col=l+1,)
-    
+            
     fig.tight_layout() 
+    legend_cols = 5 if plot_output_std else 4
+    axs[len(context_set_sizes) - 1, 0].legend( 
+        bbox_to_anchor=(0.2, 0., 0.6, 0.),
+        bbox_transform=fig.transFigure,
+        loc='upper left',
+        mode='expand', 
+        ncol=legend_cols,
+        borderaxespad=0.,
+    )
     return fig, axs
 
 
