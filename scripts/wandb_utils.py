@@ -38,12 +38,15 @@ def get_objective_tasks_list(run):
         dais_new_task_list
     )
     
-def get_run(name, group, job_type, base_config=None, verbose=True):
+def get_runs(name, group, job_type, base_config=None, config_filter=None, verbose=True):
     base_config = default_base_config if base_config is None else base_config
     assert base_config.keys() == default_base_config.keys()
     config = copy.deepcopy(base_config)
     config['groups'] = [group]
     config['job_types'] = [[job_type]]
+    if config_filter is not None:
+        assert type(config_filter) is dict
+        config['config'] = config_filter
     
     api = wandb.Api(timeout=15)
     run_list = get_filtered_runs(config, api)
@@ -51,12 +54,14 @@ def get_run(name, group, job_type, base_config=None, verbose=True):
         print("Found following runs that match the filters:")
         for run in run_list:
             print(run.name)
+    filtered_runs = list()
     for run in run_list:
         if name in run.name:
-            if verbose:
-                print("Selecting the follwoing run: ")
-                print(run.name)
-            return run
-    if verbose:
+            filtered_runs.append(run)
+    if verbose and len(filtered_runs) > 0:
+        print("Selected the follwoing runs: ")
+        for run in filtered_runs:
+            print(run.name)    
+    if verbose and len(filtered_runs) == 0:
         print('No run matches the given name. ')
-    return None
+    return filtered_runs
