@@ -113,7 +113,7 @@ def plot_examples(
         task = benchmark.get_task_by_index(k)
         x_test[k] = task.x
         y_test[k] = task.y
-
+    y_min, y_max = 0, 0
     # plot predictions
     for i in range(len(context_set_sizes)):
         cs = context_set_sizes[i]
@@ -134,8 +134,10 @@ def plot_examples(
                 # yticks=[],
             )
             y_true = benchmark(x_plt, benchmark.params[task])
-            ax.plot(x_plt, y_true, label='True function', color='xkcd:orange', linewidth=3.0)
-            label_prediction = 'Predition'
+            ax.plot(x_plt, y_true, label='Ground truth function', color='xkcd:orange', linewidth=3.0)
+            y_min = min(y_min, y_true.min())
+            y_max = max(y_max, y_true.max())
+            label_prediction = 'Prediction'
             label_std = 'Standard deviation'
             for s in range(n_samples):
                 x_sample = x_plt.flatten()
@@ -168,14 +170,17 @@ def plot_examples(
             
     fig.tight_layout() 
     legend_cols = 5 if plot_output_std else 4
-    axs[len(context_set_sizes) - 1, 0].legend( 
-        bbox_to_anchor=(0.2, 0., 0.6, 0.),
+    legend_width = 0.8
+    ax = axs[len(context_set_sizes) - 1, 0]
+    ax.legend( 
+        bbox_to_anchor=((1 - legend_width) / 2, 0., legend_width, 0.),
         bbox_transform=fig.transFigure,
         loc='upper left',
         mode='expand', 
         ncol=legend_cols,
         borderaxespad=0.,
     )
+    ax.set_ylim((y_min - 0.5, y_max + 0.5))
     return fig, axs
 
 
@@ -192,7 +197,6 @@ def prepare_model_for_plotting(config_file, experiment_name):
     # benchmark_params['benchmark'] = 'LineSine1D'
     benchmark_meta, benchmark_val, benchmark_test = build_benchmarks(benchmark_params)
     benchmark = benchmark_test
-    #%%
     model_params = copy.deepcopy(params["model_params"])
     model_params["d_x"] = benchmark_meta.d_x
     model_params["d_y"] = benchmark_meta.d_y
@@ -261,7 +265,7 @@ def plot_ml_over_css(runs, fig=None, ax=None, legend_prefix='', x_axis_offset=0.
     else:
         raise ValueError
 
-    ax.set_ylabel('Predictive likelihood')
+    ax.set_ylabel('Log predictive likelihood')
     ax.set_xlabel('Context set size')
     ax.legend( 
         bbox_to_anchor=(0.2, 0., 0.6, 0.),
