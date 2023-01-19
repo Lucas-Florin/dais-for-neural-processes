@@ -50,8 +50,8 @@ name: quadratic_dais_fixed_std_y_long
 
 params:
   train_params:
-    save_model: True
-    load_model: False
+    save_model: False
+    load_model: True
     load_model_path: "./experiments/quadratic_dais_fixed_std_y/log/rep_00"
   model_params:
     adam_lr: 0.00002419
@@ -69,13 +69,11 @@ params:
   eval_params:
     use_mc: False
     mc_n_samples: null
-    use_ais: True
+    use_ais: False
     ais_chain_length: null
-    use_dais: False
+    use_dais: True
     dais_chain_length: null
-    dais_step_size: 0.01
-    dais_scalar_step_size: True
-    dais_clip_grad: 1.0
+    dais_step_size: null
 
 # list:
 #   eval_params:
@@ -83,13 +81,14 @@ params:
 #     mc_batch_size: [16, 16, 16, 1, 1]
 #     mc_subbatch_size: [null, null, null, null, 100000]
 
+# list:
+#   eval_params:
+#     ais_chain_length: [10, 100, 1000, 10000]
+
 list:
   eval_params:
-    ais_chain_length: [10, 100, 1000, 10000]
-
-# grid:
-#   eval_params:
-#     dais_chain_length: [10, 100, 1000, 10000, 100000]
+    dais_chain_length: [10, 100, 1000, 10000, 100000]
+    dais_step_size: [0.007, 0.007, 0.007, 0.007, 0.005]
 
 wandb:
   job_type: long

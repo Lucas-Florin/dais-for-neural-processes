@@ -2,7 +2,7 @@
 # Slurm bwuni cpu
 name: "SLURM"   # MUST BE "SLURM"
 partition: "single"  # "single" for cpu, "gpu_4" or gpu_8" for gpu
-job-name: "ls_mc" # this will be the experiment's name in slurm
+job-name: "ls_ds_ga" # this will be the experiment's name in slurm
 path_to_template: scripts/sbatch_template_bwuni_simple.sh
 num_parallel_jobs: 50 # max number of jobs executed in parallel
 ntasks: 1   #  leave that like it is
@@ -12,50 +12,53 @@ time: 4000   # in minutes
 ---
 name: DEFAULT
 import_path: baseline.yaml
-
 params:
+  model_params:
+    n_samples: 16
+    loss_type: DAIS
   benchmark_params:
     benchmark: "LineSine1D"
-
 wandb:
-  group: linesine_mc
+  group: linesine_dais_gamma
   project: NP_baseline
-  hp_combinations_per_agent: 1
 
 ---
-name: linesine_mc
+name: linesine_dais_gamma
 
 params:
   train_params:
     save_model: True
     load_model: False
-    load_model_path: "./experiments/linesine_mc/log/rep_00"
+    load_model_path: "./experiments/linesine_dais_gamma/log/rep_00"
   model_params:
-    adam_lr: 0.001735
-    d_z: 28
-    n_hidden_units: 57
-    seed: 1238
+    adam_lr: 0.002356
+    d_z: 8
+    n_hidden_units: 60
+    dais_step_size: 0.002695
+    dais_partial_gamma: 0.8534
+    seed: 1237
   benchmark_params:
     seed_task_test: 1236
     seed_x_test: 2236
     seed_noise_test: 3236
-
 wandb:
   job_type: run
 
 ---
-name: linesine_mc_long
+name: linesine_dais_gamma_long
 
 params:
   train_params:
     save_model: False
     load_model: True
-    load_model_path: "./experiments/linesine_mc/log/rep_00"
+    load_model_path: "./experiments/linesine_dais_gamma/log/rep_00"
   model_params:
-    adam_lr: 0.001735
-    d_z: 28
-    n_hidden_units: 57
-    seed: 1238
+    adam_lr: 0.002356
+    d_z: 8
+    n_hidden_units: 60
+    dais_step_size: 0.002695
+    dais_partial_gamma: 0.8534
+    seed: 1237
   benchmark_params:
     seed_task_test: 1236
     seed_x_test: 2236
@@ -88,12 +91,13 @@ wandb:
   job_type: long
 
 
+
 ---
-name: linesine_mc_sweep
+name: linesine_dais_gamma_sweep
 repetitions: 40
 
 params:
-  copy_sweep_model_params: ["adam_lr", "d_z", "n_hidden_units"]
+  copy_sweep_model_params: ["adam_lr", "d_z", "n_hidden_units", "dais_step_size", "dais_partial_gamma"]
   eval_params:
     use_ais: False
     show_examples: False
@@ -104,7 +108,7 @@ wandb:
   hp_combinations_per_agent: 6
 
 wandb_sweep:
-  name: linesine_mc_sweep
+  name: linesine_dais_gamma_sweep
   metric: 
     name: mc_objective
     goal: maximize
@@ -120,20 +124,30 @@ wandb_sweep:
     n_hidden_units:
       min: 8
       max: 64
-
+    dais_step_size:
+      distribution: log_uniform_values
+      max: 2.4
+      min: 0.0024
+    dais_partial_gamma:
+      distribution: uniform
+      min: 0.0
+      max: 1.0
 
 ---
-name: linesine_mc_repeat
+name: linesine_dais_gamma_repeat
 repetitions: 1
+
 params:
   train_params:
     save_model: True
-    
+
 list:
   model_params:
-    adam_lr: [0.001735, 0.004051, 0.003363, 0.0009752, 0.001549]
-    d_z: [28, 32, 14, 32, 12]
-    n_hidden_units: [57, 64, 61, 64, 64]
+    adam_lr: [0.001741, 0.0006766, 0.002966, 0.001665, 0.002356]
+    d_z: [31, 11, 29, 22, 8]
+    n_hidden_units: [61, 61, 39, 53, 60]
+    dais_step_size: [0.004119, 0.01189, 0.002924, 0.007522, 0.002695]
+    dais_partial_gamma: [0.01478, 0.1842, 0.7802, 0.1962, 0.8534]
 
 grid:
   model_params:
@@ -142,18 +156,19 @@ grid:
 wandb:
   job_type: repeat
 
-
 ---
-name: linesine_mc_repeat_test
+name: linesine_dais_gamma_repeat_test
 
 params:
   train_params:
     save_model: False
     load_model: True
   model_params:
-    adam_lr: 0.001735
-    d_z: 28
-    n_hidden_units: 57
+    adam_lr: 0.002356
+    d_z: 8
+    n_hidden_units: 60
+    dais_step_size: 0.002695
+    dais_partial_gamma: 0.8534
   benchmark_params:
     seed_task_test: 1236
     seed_x_test: 2236
@@ -164,11 +179,10 @@ list:
     seed: [1235, 1236, 1237, 1238, 1239]
   train_params:
     load_model_path: 
-      - "experiments/linesine_mc_repeat/linesine_mc_repeat__mod.al0.001735_mod.dz28_mod.nhu57_mod.s1235/log/rep_00"
-      - "experiments/linesine_mc_repeat/linesine_mc_repeat__mod.al0.001735_mod.dz28_mod.nhu57_mod.s1236/log/rep_00"
-      - "experiments/linesine_mc_repeat/linesine_mc_repeat__mod.al0.001735_mod.dz28_mod.nhu57_mod.s1237/log/rep_00"
-      - "experiments/linesine_mc_repeat/linesine_mc_repeat__mod.al0.001735_mod.dz28_mod.nhu57_mod.s1238/log/rep_00"
-      - "experiments/linesine_mc_repeat/linesine_mc_repeat__mod.al0.001735_mod.dz28_mod.nhu57_mod.s1239/log/rep_00"
-
+      - "./experiments/linesine_dais_gamma_repeat/linesine_dais_gamma_repeat__mod.al0.001741_mod.dz31_mod.nhu61_mod.dss0.004119_mod.dpg0.01478_mod.s1235/log/rep_00"
+      - "./experiments/linesine_dais_gamma_repeat/linesine_dais_gamma_repeat__mod.al0.001741_mod.dz31_mod.nhu61_mod.dss0.004119_mod.dpg0.01478_mod.s1236/log/rep_00"
+      - "./experiments/linesine_dais_gamma_repeat/linesine_dais_gamma_repeat__mod.al0.001741_mod.dz31_mod.nhu61_mod.dss0.004119_mod.dpg0.01478_mod.s1237/log/rep_00"
+      - "./experiments/linesine_dais_gamma_repeat/linesine_dais_gamma_repeat__mod.al0.001741_mod.dz31_mod.nhu61_mod.dss0.004119_mod.dpg0.01478_mod.s1238/log/rep_00"
+      - "./experiments/linesine_dais_gamma_repeat/linesine_dais_gamma_repeat__mod.al0.001741_mod.dz31_mod.nhu61_mod.dss0.004119_mod.dpg0.01478_mod.s1239/log/rep_00"
 wandb:
   job_type: repeat_test

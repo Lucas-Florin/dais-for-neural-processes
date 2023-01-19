@@ -72,9 +72,7 @@ params:
     ais_chain_length: null
     use_dais: True
     dais_chain_length: null
-    dais_step_size: 0.01
-    dais_scalar_step_size: False
-    dais_clip_grad: 1.0
+    dais_step_size: null
 
 # list:
 #   eval_params:
@@ -86,9 +84,10 @@ params:
 #   eval_params:
 #     ais_chain_length: [10, 100, 1000, 10000]
 
-grid:
+list:
   eval_params:
     dais_chain_length: [10, 100, 1000, 10000, 100000]
+    dais_step_size: [0.007, 0.007, 0.007, 0.007, 0.005]
 
 wandb:
   job_type: long
