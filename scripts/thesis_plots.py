@@ -216,11 +216,10 @@ def prepare_model_for_plotting(config_file, experiment_name):
 
 
 def plot_ml_over_css(runs, fig=None, ax=None, legend_prefix='', x_axis_offset=0.0, color='blue', 
-                     use_mc=True, use_ais=True):
+                     use_mc=True, use_ais=True, figsize=(7, 4), legend_width=0.8):
     n_runs = len(runs)
     context_set_sizes = np.array([1, 3, 9], dtype=float) + x_axis_offset
     n_css = len(context_set_sizes)
-    figsize = (8, 4)
     if fig is None:
         fig, ax = plt.subplots(figsize=figsize)
 
@@ -273,12 +272,69 @@ def plot_ml_over_css(runs, fig=None, ax=None, legend_prefix='', x_axis_offset=0.
 
     ax.set_ylabel('Log predictive likelihood')
     ax.set_xlabel('Context set size')
+    
+    ax.legend( 
+        bbox_to_anchor=((1 - legend_width) / 2, 0., legend_width, 0.),
+        bbox_transform=fig.transFigure,
+        loc='upper left',
+        mode='expand', 
+        ncol=2,
+        borderaxespad=0.,
+    )
+    
+    return fig, ax
+    
+    
+def plot_ml_over_compute(runs, metric, fig=None, ax=None, color='blue', true_ml=None, figsize=(7, 4)):
+    n_runs = len(runs)
+    
+    if fig is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    
+    metrics_labels = {
+        'mc': 'Likelihood weighting',
+        'ais': 'AIS',
+        'dais': 'DAIS',
+    }
+
+    objective, compute = list(), list()
+    objective_name = f'{metric}_objective'
+    for i, run in enumerate(runs):
+        summary = run.summary
+        run_eval_config = run.config
+        if objective_name in summary:
+            objective.append(summary[objective_name])
+            if metric == 'mc':
+                c = run_eval_config['eval_params']['mc_n_samples']
+            elif metric == 'ais': 
+                c = 1
+                c *= run_eval_config['eval_params']['ais_n_samples']
+                c *= run_eval_config['eval_params']['ais_chain_length']
+                c *= run_eval_config['eval_params']['ais_n_hmc_steps']
+            elif metric == 'dais':
+                c = 1
+                c *= run_eval_config['eval_params']['dais_n_samples']
+                c *= run_eval_config['eval_params']['dais_chain_length']
+            else:
+                raise ValueError  
+            compute.append(c)
+    objective, compute = np.array(objective), np.array(compute)            
+    new_order = np.argsort(compute)
+    compute = compute[new_order]
+    objective = objective[new_order]
+    if true_ml is not None:
+        objective -= true_ml
+    ax.plot(compute, objective, label=metrics_labels[metric], color=color)
+
+    ax.set_xscale('log', base=10)
+    ax.set_ylabel('Log predictive likelihood estimate')
+    ax.set_xlabel('Number of decoder evaluataions')
     ax.legend( 
         bbox_to_anchor=(0.2, 0., 0.6, 0.),
         bbox_transform=fig.transFigure,
         loc='upper left',
         mode='expand', 
-        # ncol=ncols,
+        ncol=3,
         borderaxespad=0.,
     )
     
