@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
 from collections.abc import Sequence
 import copy
 
@@ -285,7 +286,8 @@ def plot_ml_over_css(runs, fig=None, ax=None, legend_prefix='', x_axis_offset=0.
     return fig, ax
     
     
-def plot_ml_over_compute(runs, metric, fig=None, ax=None, color='blue', true_ml=None, figsize=(7, 4)):
+def plot_ml_over_compute(runs, metric, fig=None, ax=None, color='blue', true_ml=None, 
+                         figsize=(7, 4), ylim=None, symlog=None, additional_ticks=None):
     n_runs = len(runs)
     
     if fig is None:
@@ -324,11 +326,23 @@ def plot_ml_over_compute(runs, metric, fig=None, ax=None, color='blue', true_ml=
     objective = objective[new_order]
     if true_ml is not None:
         objective -= true_ml
-    ax.plot(compute, objective, label=metrics_labels[metric], color=color)
+    markevery = None
+    if symlog is not None:
+        i = np.where(objective > -symlog)[0][0]
+        c = compute[i-1] + (compute[i] - compute[i-1]) * (-symlog - objective[i-1]) / (objective[i] - objective[i-1])
+        objective = np.concatenate([objective[:i], [-symlog], objective[i:]])
+        compute = np.concatenate([compute[:i], [c], compute[i:]])
+        l = mlines.Line2D([compute.min(), compute.max()], [-symlog, -symlog], 
+                          linestyle=':', color='gray', linewidth=1.0)
+        markevery = np.ones(compute.shape, dtype=bool)
+        markevery[i] = False
+        ax.add_line(l)
+    ax.plot(compute, objective, label=metrics_labels[metric], 
+            marker='o', markevery=markevery, color=color)
 
     ax.set_xscale('log', base=10)
     ax.set_ylabel('Log predictive likelihood estimate')
-    ax.set_xlabel('Number of decoder evaluataions')
+    ax.set_xlabel('Number of decoder evaluations')
     ax.legend( 
         bbox_to_anchor=(0.2, 0., 0.6, 0.),
         bbox_transform=fig.transFigure,
@@ -337,6 +351,24 @@ def plot_ml_over_compute(runs, metric, fig=None, ax=None, color='blue', true_ml=
         ncol=3,
         borderaxespad=0.,
     )
+    
+    assert ylim is None or symlog is None
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    if symlog is not None:
+        assert symlog > 0
+        subs = np.arange(2, 10)
+        ax.set_yscale('symlog', base=10, linthresh=symlog, subs=subs)
+        if additional_ticks is not None:
+            additional_ticks = np.array(additional_ticks)
+            additional_ticks = np.concatenate((-additional_ticks[::-1], [0.], additional_ticks))
+            ticks = ax.get_yticks()
+            ticks = ticks[ticks < min(additional_ticks)]
+            ticks = np.concatenate([ticks, additional_ticks])
+            labels = ax.get_yticklabels()
+            labels = [str(int(t)) for t in ticks]
+            ax.set_yticks(ticks)
+            ax.set_yticklabels(labels)
     
     return fig, ax
     
