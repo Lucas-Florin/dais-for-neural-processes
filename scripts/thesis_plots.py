@@ -287,7 +287,7 @@ def plot_ml_over_css(runs, fig=None, ax=None, legend_prefix='', x_axis_offset=0.
     
     
 def plot_ml_over_compute(runs, metric, fig=None, ax=None, color='blue', true_ml=None, 
-                         figsize=(7, 4), ylim=None, symlog=None, additional_ticks=None):
+                         figsize=(7, 4), ylim=None, symlog=None, additional_ticks=None, final=False):
     n_runs = len(runs)
     
     if fig is None:
@@ -328,15 +328,7 @@ def plot_ml_over_compute(runs, metric, fig=None, ax=None, color='blue', true_ml=
         objective -= true_ml
     markevery = None
     if symlog is not None:
-        i = np.where(objective > -symlog)[0][0]
-        c = compute[i-1] + (compute[i] - compute[i-1]) * (-symlog - objective[i-1]) / (objective[i] - objective[i-1])
-        objective = np.concatenate([objective[:i], [-symlog], objective[i:]])
-        compute = np.concatenate([compute[:i], [c], compute[i:]])
-        l = mlines.Line2D([compute.min(), compute.max()], [-symlog, -symlog], 
-                          linestyle=':', color='gray', linewidth=1.0)
-        markevery = np.ones(compute.shape, dtype=bool)
-        markevery[i] = False
-        ax.add_line(l)
+        compute, objective, markevery = add_symlog_border(ax, compute, objective, symlog, final)
     ax.plot(compute, objective, label=metrics_labels[metric], 
             marker='o', markevery=markevery, color=color)
 
@@ -356,20 +348,44 @@ def plot_ml_over_compute(runs, metric, fig=None, ax=None, color='blue', true_ml=
     if ylim is not None:
         ax.set_ylim(ylim)
     if symlog is not None:
-        assert symlog > 0
-        subs = np.arange(2, 10)
-        ax.set_yscale('symlog', base=10, linthresh=symlog, subs=subs)
-        if additional_ticks is not None:
-            additional_ticks = np.array(additional_ticks)
-            additional_ticks = np.concatenate((-additional_ticks[::-1], [0.], additional_ticks))
-            ticks = ax.get_yticks()
-            ticks = ticks[ticks < min(additional_ticks)]
-            ticks = np.concatenate([ticks, additional_ticks])
-            labels = ax.get_yticklabels()
-            labels = [str(int(t)) for t in ticks]
-            ax.set_yticks(ticks)
-            ax.set_yticklabels(labels)
+        set_symlog_scale(ax, symlog, additional_ticks)
     
     return fig, ax
+    
+    
+def set_symlog_scale(ax, linthresh, additional_ticks=None):
+    assert linthresh > 0
+    subs = np.arange(2, 10)
+    ax.set_yscale('symlog', base=10, linthresh=linthresh, subs=subs)
+    if additional_ticks is not None:
+        additional_ticks = np.array(additional_ticks)
+        additional_ticks = np.concatenate((-additional_ticks[::-1], [0.], additional_ticks))
+        ticks = ax.get_yticks()
+        ticks = ticks[ticks < min(additional_ticks)]
+        ticks = np.concatenate([ticks, additional_ticks])
+        labels = ax.get_yticklabels()
+        labels = [str(int(t)) for t in ticks]
+        ax.set_yticks(ticks)
+        ax.set_yticklabels(labels)
+    
+
+def add_symlog_border(ax, x_values, y_values, linthresh, final, error=None):
+    markevery = None
+    if np.any(y_values < -linthresh) and np.any(y_values > -linthresh):
+        i = np.where(y_values > -linthresh)[0][0]
+        c = x_values[i-1] + (x_values[i] - x_values[i-1]) * (-linthresh - y_values[i-1]) / (y_values[i] - y_values[i-1])
+        y_values = np.concatenate([y_values[:i], [-linthresh], y_values[i:]])
+        x_values = np.concatenate([x_values[:i], [c], x_values[i:]])
+        if error is not None:
+            error = np.concatenate([error[:, :i], [[0.], [0.]], error[:, i:]], 1)
+        markevery = np.ones(x_values.shape, dtype=bool)
+        markevery[i] = False
+    if final:
+        l = mlines.Line2D([x_values.min(), x_values.max()], [-linthresh, -linthresh], 
+                            linestyle=':', color='gray', linewidth=1.0)
+        ax.add_line(l)
+    if error is not None:
+        return x_values, y_values, markevery, error
+    return x_values, y_values, markevery
     
     
