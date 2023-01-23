@@ -217,56 +217,63 @@ def prepare_model_for_plotting(config_file, experiment_name):
 
 
 def plot_ml_over_css(runs, fig=None, ax=None, legend_prefix='', x_axis_offset=0.0, color='blue', 
-                     use_mc=True, use_ais=True, figsize=(7, 4), legend_width=0.8):
+                     use_mc=True, use_ais=True, figsize=(7, 4), legend_width=0.8, 
+                     symlog=None, additional_ticks=None, final=False):
     n_runs = len(runs)
     context_set_sizes = np.array([1, 3, 9], dtype=float) + x_axis_offset
     n_css = len(context_set_sizes)
     if fig is None:
         fig, ax = plt.subplots(figsize=figsize)
 
-    # run_config = run.config
-    # context_set_sizes = run_config['eval_params']['context_sizes']
+    metrics = dict()
+    if use_mc:
+        metrics['mc'] = 'likelihood weighting'
+    if use_ais:
+        metrics['ais'] = 'AIS'
     if len(runs) > 1:
-        mc_objective_list = np.zeros((n_runs, n_css))
-        ais_objective_list = np.zeros((n_runs, n_css))
+        for metric in metrics.keys():
+            css = context_set_sizes
+            objective_list = np.zeros((n_runs, n_css))
 
-        for i, run in enumerate(runs):
-            summary = run.summary
-            mc_objective_list[i, :] = summary['mc_objective_list']
-            ais_objective_list[i, :] = summary['ais_objective_list']
+            for i, run in enumerate(runs):
+                summary = run.summary
+                objective_list[i, :] = summary[f'{metric}_objective_list']
 
-        mc_median = np.median(mc_objective_list, 0)
-        ais_median = np.median(ais_objective_list, 0)
-        mc_max = mc_objective_list.max(0)
-        ais_max = ais_objective_list.max(0)
-        mc_min = mc_objective_list.min(0)
-        ais_min = ais_objective_list.min(0)
-
-        mc_error = np.stack([
-            mc_max - mc_median,
-            -(mc_min - mc_median)
-        ])
-        ais_error = np.stack([
-            ais_max - ais_median,
-            -(ais_min - ais_median)
-        ])
-
-        ax.errorbar(context_set_sizes, mc_median, mc_error, 
-                    label=f'{legend_prefix}Likelihood weighting', color=color)
-        ax.errorbar(context_set_sizes + 0.05, ais_median, ais_error, 
-                    label=f'{legend_prefix}AIS', linestyle='dashed', color=color)
+            median_i = np.argsort(objective_list.mean(1))[n_runs // 2]
+            median = objective_list[median_i, :]
+            objective_max = objective_list.max(0)
+            objective_min = objective_list.min(0)
+            
+            error = np.stack([
+                -(objective_min - median),
+                objective_max - median,
+            ])
+            if symlog is not None:
+                css, median, _, error = add_symlog_border(ax, css, median, symlog, final, 
+                                                                    error=error)
+            
+            linestyle = 'dashed' if metric == 'ais' else None
+            i = 1 if metric == 'ais' else 0
+            eb = ax.errorbar(css + 0.05 * i, median, error, 
+                        label=f'{legend_prefix}{metrics[metric]}', linestyle=linestyle, color=color)
+            if linestyle is not None:
+                eb[-1][0].set_linestyle(linestyle)
 
     elif len(runs) == 1:
         run = runs[0]
         summary = run.summary
-        if use_mc:
-            mc_objective_list = summary['mc_objective_list']
-            ax.plot(context_set_sizes, mc_objective_list, 
-                    label=f'{legend_prefix}Likelihood weighting', color=color)
-        if use_ais:
-            ais_objective_list = summary['ais_objective_list']        
-            ax.plot(context_set_sizes + 0.05, ais_objective_list, 
-                    label=f'{legend_prefix}AIS', linestyle='dashed', color=color)
+        for metric in metrics.keys():
+            css = context_set_sizes
+            objective_list = np.array(summary[f'{metric}_objective_list'])
+            markevery = None
+            if symlog is not None:
+                css, objective_list, markevery = add_symlog_border(ax, css, objective_list, symlog, final)
+            linestyle = 'dashed' if metric == 'ais' else None
+            i = 1 if metric == 'ais' else 0
+            ax.plot(css + 0.05 * i, objective_list, 
+                    label=f'{legend_prefix}{metrics[metric]}', linestyle=linestyle, 
+                    marker='o', markevery=markevery, color=color)
+
 
     else:
         raise ValueError
@@ -282,6 +289,8 @@ def plot_ml_over_css(runs, fig=None, ax=None, legend_prefix='', x_axis_offset=0.
         ncol=2,
         borderaxespad=0.,
     )
+    if symlog is not None:
+        set_symlog_scale(ax, symlog, additional_ticks)
     
     return fig, ax
     
