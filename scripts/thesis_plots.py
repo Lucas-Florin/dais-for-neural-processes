@@ -296,7 +296,8 @@ def plot_ml_over_css(runs, fig=None, ax=None, legend_prefix='', x_axis_offset=0.
     
     
 def plot_ml_over_compute(runs, metric, fig=None, ax=None, color='blue', true_ml=None, 
-                         figsize=(7, 4), ylim=None, symlog=None, additional_ticks=None, final=False):
+                         figsize=(7, 4), ylim=None, symlog=None, additional_ticks=None, final=False,
+                         max_ml=False, label=None, legend_width=0.8, marker='o'):
     n_runs = len(runs)
     
     if fig is None:
@@ -307,45 +308,61 @@ def plot_ml_over_compute(runs, metric, fig=None, ax=None, color='blue', true_ml=
         'ais': 'AIS',
         'dais': 'DAIS',
     }
-
-    objective, compute = list(), list()
-    objective_name = f'{metric}_objective'
-    for i, run in enumerate(runs):
-        summary = run.summary
-        run_eval_config = run.config
-        if objective_name in summary:
-            objective.append(summary[objective_name])
-            if metric == 'mc':
-                c = run_eval_config['eval_params']['mc_n_samples']
-            elif metric == 'ais': 
-                c = 1
-                c *= run_eval_config['eval_params']['ais_n_samples']
-                c *= run_eval_config['eval_params']['ais_chain_length']
-                c *= run_eval_config['eval_params']['ais_n_hmc_steps']
-            elif metric == 'dais':
-                c = 1
-                c *= run_eval_config['eval_params']['dais_n_samples']
-                c *= run_eval_config['eval_params']['dais_chain_length']
-            else:
-                raise ValueError  
-            compute.append(c)
-    objective, compute = np.array(objective), np.array(compute)            
-    new_order = np.argsort(compute)
-    compute = compute[new_order]
-    objective = objective[new_order]
-    if true_ml is not None:
-        objective -= true_ml
+    metrics_list = list(metrics_labels.keys()) if max_ml else [metric]
+    objectives = dict()
+    computes = dict()
+    for metric in metrics_list:
+        objective, compute = list(), list()
+        objective_name = f'{metric}_objective'
+        for i, run in enumerate(runs):
+            summary = run.summary
+            run_eval_config = run.config
+            if objective_name in summary:
+                objective.append(summary[objective_name])
+                if metric == 'mc':
+                    c = run_eval_config['eval_params']['mc_n_samples']
+                elif metric == 'ais': 
+                    c = 1
+                    c *= run_eval_config['eval_params']['ais_n_samples']
+                    c *= run_eval_config['eval_params']['ais_chain_length']
+                    c *= run_eval_config['eval_params']['ais_n_hmc_steps']
+                elif metric == 'dais':
+                    c = 1
+                    c *= run_eval_config['eval_params']['dais_n_samples']
+                    c *= run_eval_config['eval_params']['dais_chain_length']
+                else:
+                    raise ValueError  
+                compute.append(c)
+        objective, compute = np.array(objective), np.array(compute)            
+        new_order = np.argsort(compute)
+        compute = compute[new_order]
+        objective = objective[new_order]
+        if true_ml is not None:
+            objective -= true_ml
+        objectives[metric] = objective
+        computes[metric] = compute
+    if max_ml:
+        lens = [len(computes[experiment_name]) for experiment_name in computes.keys()]
+        objective = np.zeros((max(*lens), ))
+        compute = np.zeros_like(objective)
+        for i in range(len(objective)):
+            computes_i = get_list_in_dict_value(computes, i, reverse=True)
+            assert np.all(np.array(computes_i) == computes_i[0])
+            compute[-1-i] = computes_i[0]
+            objective[-1-i] = max(get_list_in_dict_value(objectives, i, reverse=True))
+        
     markevery = None
     if symlog is not None:
         compute, objective, markevery = add_symlog_border(ax, compute, objective, symlog, final)
-    ax.plot(compute, objective, label=metrics_labels[metric], 
-            marker='o', markevery=markevery, color=color)
+    label = label if max_ml else metrics_labels[metric]
+    ax.plot(compute, objective, label=label, 
+            marker=marker, markevery=markevery, color=color)
 
     ax.set_xscale('log', base=10)
     ax.set_ylabel('Log predictive likelihood estimate')
     ax.set_xlabel('Number of decoder evaluations')
     ax.legend( 
-        bbox_to_anchor=(0.2, 0., 0.6, 0.),
+        bbox_to_anchor=((1 - legend_width) / 2, 0., legend_width, 0.),
         bbox_transform=fig.transFigure,
         loc='upper left',
         mode='expand', 
@@ -356,12 +373,24 @@ def plot_ml_over_compute(runs, metric, fig=None, ax=None, color='blue', true_ml=
     assert ylim is None or symlog is None
     if ylim is not None:
         ax.set_ylim(ylim)
-    if symlog is not None:
+    if symlog is not None and final:
         set_symlog_scale(ax, symlog, additional_ticks)
     
     return fig, ax
     
-    
+
+def get_list_in_dict_value(dict_with_lists, index, reverse=False):
+    assert index >= 0
+    min_len = index + 1
+    i = -1 - index if reverse else index
+    values_at_index = [
+        dict_with_lists[experiment_name][i] 
+        for experiment_name in dict_with_lists.keys() 
+        if len(dict_with_lists[experiment_name]) >= min_len
+    ]
+    return values_at_index
+
+
 def set_symlog_scale(ax, linthresh, additional_ticks=None):
     assert linthresh > 0
     subs = np.arange(2, 10)
