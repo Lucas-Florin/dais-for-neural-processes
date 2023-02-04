@@ -12,7 +12,7 @@ from cw2.cw_config import cw_config
 
 
 
-def plot_benchmark_examples(benchmark, tasks=None, figsize=(8,4)):
+def plot_benchmark_examples(benchmark, tasks=None, figsize=(8,4), legend_width=0.8):
     x_min = benchmark.x_bounds[0, 0]
     x_max = benchmark.x_bounds[0, 1]
     x_plt_min = x_min - 0.1 * (x_max - x_min)
@@ -33,11 +33,11 @@ def plot_benchmark_examples(benchmark, tasks=None, figsize=(8,4)):
             std = benchmark.output_noise
             x, y = [i[task, ...].flatten() for i in [x_test, y_test]]
             y_true = benchmark(x_plt, benchmark.params[task])
-            ax.plot(x_plt, y_true, label='Function')
-            ax.fill_between(x_plt, y_true - std, y_true + std, alpha=0.2, label='Standard deviation')
-            ax.plot(x, y, 'o', markersize=3, label='Dataset points')
+            ax.plot(x_plt, y_true, label='Ground truth function')
+            ax.fill_between(x_plt, y_true - std, y_true + std, alpha=0.2, label='Noise standard deviation')
+            ax.plot(x, y, 'o', markersize=3, label='Sampled dataset points')
     axs[nrows - 1, 0].legend( 
-        bbox_to_anchor=(0.2, 0., 0.6, 0.),
+        bbox_to_anchor=((1 - legend_width) / 2, 0., legend_width, 0.),
         bbox_transform=fig.transFigure,
         loc='upper left',
         mode='expand', 
@@ -201,7 +201,6 @@ def prepare_model_for_plotting(config_file, experiment_name):
     params = config_dict["params"]
 
     benchmark_params = params['benchmark_params']
-    # benchmark_params['benchmark'] = 'LineSine1D'
     benchmark_meta, benchmark_val, benchmark_test = build_benchmarks(benchmark_params)
     benchmark = benchmark_test
     model_params = copy.deepcopy(params["model_params"])
@@ -231,6 +230,7 @@ def plot_ml_over_css(runs, fig=None, ax=None, legend_prefix='', x_axis_offset=0.
     if use_ais:
         metrics['ais'] = 'AIS'
     if len(runs) > 1:
+        assert len(runs) == 5
         for metric in metrics.keys():
             css = context_set_sizes
             objective_list = np.zeros((n_runs, n_css))
