@@ -58,6 +58,7 @@ def plot_examples(
     dais_tasks_list: None,
     dais_new_tasks_list: None,
     n_samples: int = 3,
+    sample_alpha=1.0,
     include_evaluation_method_names=False,
     figsize=(8,4),
     plot_output_std=False,
@@ -78,17 +79,20 @@ def plot_examples(
     for cs in context_set_sizes:
         for t in tasks:
             title = ''
-            for task_list, name in zip((mc_tasks_list, ais_tasks_list, dais_tasks_list, dais_new_tasks_list), ('MC', 'AIS', 'DAIS', 'DAIS_new')):
+            for task_list, name in zip(
+                (mc_tasks_list, ais_tasks_list, dais_tasks_list, dais_new_tasks_list), 
+                ('LW', 'AIS', 'DAIS', 'DAIS_new')):
                 if task_list is not None:
                     assert len(task_list) > 0
                     ml = task_list[cs][t]
                     if include_evaluation_method_names:
-                        title += f'{name}: '
-                    title += f'{ml:.2f}; '
+                        title += f'{name}='
+                    num_decimals = min(2, max(0, 3 - np.trunc(np.log10(np.abs(ml))).astype(int)))
+                    title += f'{ml:.{num_decimals}f}; '
             subplot_titles[(cs, t)] = title
     fig, axs = plt.subplots(
-        len(context_set_sizes),
         n_task_plot,
+        len(context_set_sizes),
         sharex=True, 
         sharey=True,
         figsize=figsize,
@@ -109,8 +113,8 @@ def plot_examples(
 
     x_test = np.zeros((n_task_plot, benchmark.n_datapoints_per_task, benchmark.d_x))
     y_test = np.zeros((n_task_plot, benchmark.n_datapoints_per_task, benchmark.d_y))
-    for k in tasks:
-        task = benchmark.get_task_by_index(k)
+    for k in range(n_task_plot):
+        task = benchmark.get_task_by_index(tasks[k])
         x_test[k] = task.x
         y_test[k] = task.y
     y_min, y_max = 0, 0
@@ -126,7 +130,7 @@ def plot_examples(
 
         for l in range(n_task_plot):
             task = tasks[l]
-            ax = axs[i, l]
+            ax = axs[l, i]
             ax.set(
                 title=subplot_titles[(cs, task)], 
                 # aspect=0.3, 
@@ -134,7 +138,6 @@ def plot_examples(
                 # yticks=[],
             )
             y_true = benchmark(x_plt, benchmark.params[task])
-            ax.plot(x_plt, y_true, label='Ground truth function', color='xkcd:orange', linewidth=3.0)
             y_min = min(y_min, y_true.min())
             y_max = max(y_max, y_true.max())
             label_prediction = 'Prediction'
@@ -142,7 +145,7 @@ def plot_examples(
             for s in range(n_samples):
                 x_sample = x_plt.flatten()
                 y_sample = mu_y[l, s, :, :].flatten()
-                ax.plot(x_sample, y_sample, label=label_prediction, color='blue', linewidth=1.0)
+                ax.plot(x_sample, y_sample, label=label_prediction, color='blue', linewidth=1.0, alpha=sample_alpha)
                 if plot_output_std:
                     std_y_sample = std_y[l, s, :, :].flatten()
                     ax.fill_between(
@@ -153,6 +156,7 @@ def plot_examples(
                         alpha=0.2, 
                         label=label_std)
                 label_prediction, label_std = None, None
+            ax.plot(x_plt, y_true, label='Ground truth function', color='xkcd:orange', linewidth=3.0)
             ax.plot(
                 x_test[l, cs:, :].flatten(), 
                 y_test[l, cs:, :].flatten(), 
