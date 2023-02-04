@@ -260,6 +260,8 @@ class BaselineExperiment(experiment.AbstractExperiment):
             validation_interval=eval(train_params["validation_interval"]),
             callback=callback,
             )
+        if train_params['save_model']:
+            model.save_model()
 
         # Evaluate
         eval_params = copy.deepcopy(params["eval_params"])
@@ -433,8 +435,6 @@ class BaselineExperiment(experiment.AbstractExperiment):
             })
         
         logger.process(result)
-        if train_params['save_model']:
-            model.save_model()
         
     
     def finalize(self, surrender: cw_error.ExperimentSurrender = None, crash: bool = False):
