@@ -427,3 +427,35 @@ def add_symlog_border(ax, x_values, y_values, linthresh, final, error=None):
     return x_values, y_values, markevery
     
     
+def generate_resutlts_table_row(runs):
+    
+    metric_names = ['mc', 'ais', 'dais']
+    latex_table_row = ''
+    
+    assert len(runs) > 1
+    for metric in metric_names:
+        objective_list = list()
+
+        for run in runs:
+            summary = run.summary
+            metric_key = f'{metric}_objective_list'
+            if metric_key in summary:
+                objective_list.append(summary[metric_key])
+        if len(objective_list) == 0:
+            continue
+        assert len(objective_list) == 5
+        objective_list = np.array(objective_list)
+        assert len(objective_list.shape) == 2
+        assert objective_list.shape == (5, 3)
+        objective_mean_over_css = objective_list.mean(1)
+        median = np.median(objective_mean_over_css)
+        objective_max = objective_mean_over_css.max()
+        objective_min = objective_mean_over_css.min()
+        diff_max = objective_max - median
+        diff_min = median - objective_min
+        latex_cell = f'${median:.2f}^{{+{diff_max:.2f}}}_{{-{diff_min:.2f}}}$'
+
+        latex_table_row += ' & ' + latex_cell
+
+    return latex_table_row
+
