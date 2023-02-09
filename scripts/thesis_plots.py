@@ -434,6 +434,48 @@ def generate_resutlts_table_row(runs):
     
     assert len(runs) > 1
     for metric in metric_names:
+        median, diff_min, diff_max = get_results_range(runs, metric)
+        if median is None:
+            continue
+        
+        latex_cell = f'${median:.2f}^{{+{diff_max:.2f}}}_{{-{diff_min:.2f}}}$'
+
+        latex_table_row += ' & ' + latex_cell
+
+    return latex_table_row
+
+
+def get_results_range(runs, metric):
+    objective_list = list()
+
+    for run in runs:
+        summary = run.summary
+        metric_key = f'{metric}_objective_list'
+        if metric_key in summary:
+            objective_list.append(summary[metric_key])
+    if len(objective_list) == 0:
+        return None, None, None
+    assert len(objective_list) == 5
+    objective_list = np.array(objective_list)
+    assert len(objective_list.shape) == 2
+    assert objective_list.shape == (5, 3)
+    objective_mean_over_css = objective_list.mean(1)
+    median = np.median(objective_mean_over_css)
+    objective_max = objective_mean_over_css.max()
+    objective_min = objective_mean_over_css.min()
+    diff_max = objective_max - median
+    diff_min = median - objective_min
+    return median, diff_min, diff_max
+
+def plot_results(runs, metric, fig=None, ax=None, color='blue', true_ml=None, 
+                         figsize=(7, 4), ylim=None, symlog=None, additional_ticks=None, final=False,
+                         max_ml=False, label=None, legend_width=0.8, marker='o'):
+    
+    metric_names = ['mc', 'ais', 'dais']
+    latex_table_row = ''
+    
+    assert len(runs) > 1
+    for metric in metric_names:
         objective_list = list()
 
         for run in runs:
