@@ -295,10 +295,9 @@ def plot_ml_over_css(runs, fig=None, ax=None, legend_prefix='', x_axis_offset=0.
     return fig, ax
     
     
-def plot_ml_over_compute(runs, metric, fig=None, ax=None, color='blue', true_ml=None, 
+def plot_ml_over_compute(runs, metric, fig=None, ax=None, color='blue', 
                          figsize=(7, 4), ylim=None, symlog=None, additional_ticks=None, final=False,
-                         max_ml=False, label=None, legend_width=0.8, marker='o'):
-    n_runs = len(runs)
+                         max_ml=False, multi_seed=False, label=None, legend_width=0.8, marker='o'):
     
     if fig is None:
         fig, ax = plt.subplots(figsize=figsize)
@@ -312,48 +311,70 @@ def plot_ml_over_compute(runs, metric, fig=None, ax=None, color='blue', true_ml=
     objectives = dict()
     computes = dict()
     for metric in metrics_list:
-        objective, compute = list(), list()
+        objective, compute, seed = list(), list(), list()
         objective_name = f'{metric}_objective'
         for i, run in enumerate(runs):
             summary = run.summary
-            run_eval_config = run.config
+            run_eval_config = run.config['eval_params']
             if objective_name in summary:
                 objective.append(summary[objective_name])
                 if metric == 'mc':
-                    c = run_eval_config['eval_params']['mc_n_samples']
+                    c = run_eval_config['mc_n_samples']
                 elif metric == 'ais': 
                     c = 1
-                    c *= run_eval_config['eval_params']['ais_n_samples']
-                    c *= run_eval_config['eval_params']['ais_chain_length']
-                    c *= run_eval_config['eval_params']['ais_n_hmc_steps']
+                    c *= run_eval_config['ais_n_samples']
+                    c *= run_eval_config['ais_chain_length']
+                    c *= run_eval_config['ais_n_hmc_steps']
                 elif metric == 'dais':
                     c = 1
-                    c *= run_eval_config['eval_params']['dais_n_samples']
-                    c *= run_eval_config['eval_params']['dais_chain_length']
+                    c *= run_eval_config['dais_n_samples']
+                    c *= run_eval_config['dais_chain_length']
                 else:
                     raise ValueError  
                 compute.append(c)
-        objective, compute = np.array(objective), np.array(compute)            
-        new_order = np.argsort(compute)
-        compute = compute[new_order]
-        objective = objective[new_order]
-        if true_ml is not None:
-            objective -= true_ml
-        objectives[metric] = objective
-        computes[metric] = compute
+                seed.append(run.config['model_params']['seed'])
+        if len(objective) == 0:
+            continue
+        unique_seeds = np.sort(np.unique(seed))
+        objective, compute, seed = np.array(objective), np.array(compute), np.array(seed)          
+        objective_sorted = np.zeros_like(objective).reshape((len(unique_seeds), -1))
+        compute_sorted = np.zeros_like(compute).reshape((len(unique_seeds), -1))
+        for i, s in enumerate(unique_seeds):
+            seed_idxs = seed == s
+            new_order = np.argsort(compute[seed_idxs])
+            compute_sorted[i, :] = compute[seed_idxs][new_order]
+            objective_sorted[i, :] = objective[seed_idxs][new_order]
+        objectives[metric] = objective_sorted
+        computes[metric] = compute_sorted
     if max_ml:
-        lens = [len(computes[experiment_name]) for experiment_name in computes.keys()]
-        objective = np.zeros((max(*lens), ))
+        shapes = np.array([computes[experiment_name].shape for experiment_name in computes.keys()])
+        assert np.all(shapes[:, 0] == shapes[0, 0])
+        objective = np.zeros(shapes.max(0))
         compute = np.zeros_like(objective)
         for i in range(len(objective)):
             computes_i = get_list_in_dict_value(computes, i, reverse=True)
             assert np.all(np.array(computes_i) == computes_i[0])
-            compute[-1-i] = computes_i[0]
-            objective[-1-i] = max(get_list_in_dict_value(objectives, i, reverse=True))
-        
+            compute[:, -1-i] = computes_i[0, :]
+            objective[:, -1-i] = np.max(get_list_in_dict_value(objectives, i, reverse=True), axis=0)
+    else:
+        objective = objective_sorted
+        compute = compute_sorted
+    compute = np.median(compute, axis=0)
+    compute_fill = compute
+    objective_max = objective.max(0)
+    objective_min = objective.min(0)
+    objective = np.median(objective, axis=0)
     markevery = None
     if symlog is not None:
         compute, objective, markevery = add_symlog_border(ax, compute, objective, symlog, final)
+    if objective.shape[0] > 1:
+        if symlog is not None:
+            compute_fill, objective_max, objective_min = add_symlog_border_fill_between(
+                compute_fill, objective_max, objective_min, symlog)   
+            compute_fill, objective_min, objective_max = add_symlog_border_fill_between(
+                compute_fill, objective_min, objective_max, symlog) 
+        ax.fill_between(compute_fill, objective_min, objective_max, alpha=0.2, color=color)
+
     label = label if max_ml else metrics_labels[metric]
     ax.plot(compute, objective, label=label, 
             marker=marker, markevery=markevery, color=color)
@@ -384,11 +405,11 @@ def get_list_in_dict_value(dict_with_lists, index, reverse=False):
     min_len = index + 1
     i = -1 - index if reverse else index
     values_at_index = [
-        dict_with_lists[experiment_name][i] 
+        dict_with_lists[experiment_name][:, i] 
         for experiment_name in dict_with_lists.keys() 
-        if len(dict_with_lists[experiment_name]) >= min_len
+        if dict_with_lists[experiment_name].shape[1] >= min_len
     ]
-    return values_at_index
+    return np.array(values_at_index)
 
 
 def set_symlog_scale(ax, linthresh, additional_ticks=None):
@@ -407,9 +428,23 @@ def set_symlog_scale(ax, linthresh, additional_ticks=None):
         ax.set_yticklabels(labels)
     
 
+def add_symlog_border_fill_between(x_values, y_values_1, y_values_2, linthresh):
+    if np.any(y_values_1 < -linthresh) and np.any(y_values_1 > -linthresh):
+        x_values = np.log(x_values)
+        i = np.where(y_values_1 > -linthresh)[0][0]
+        c = x_values[i-1] + (x_values[i] - x_values[i-1]) * (-linthresh - y_values_1[i-1]) / (y_values_1[i] - y_values_1[i-1])
+        y_2_intermediate = y_values_2[i-1] + (y_values_2[i] - y_values_2[i-1]) * (c - x_values[i-1]) / (x_values[i] - x_values[i-1])
+        y_values_1 = np.concatenate([y_values_1[:i], [-linthresh], y_values_1[i:]])
+        x_values = np.concatenate([x_values[:i], [c], x_values[i:]])
+        y_values_2 = np.concatenate([y_values_2[:i], [y_2_intermediate], y_values_2[i:]])
+        x_values = np.exp(x_values)
+    return x_values, y_values_1, y_values_2
+        
+
 def add_symlog_border(ax, x_values, y_values, linthresh, final, error=None):
     markevery = None
     if np.any(y_values < -linthresh) and np.any(y_values > -linthresh):
+        x_values = np.log(x_values)
         i = np.where(y_values > -linthresh)[0][0]
         c = x_values[i-1] + (x_values[i] - x_values[i-1]) * (-linthresh - y_values[i-1]) / (y_values[i] - y_values[i-1])
         y_values = np.concatenate([y_values[:i], [-linthresh], y_values[i:]])
@@ -418,6 +453,7 @@ def add_symlog_border(ax, x_values, y_values, linthresh, final, error=None):
             error = np.concatenate([error[:, :i], [[0.], [0.]], error[:, i:]], 1)
         markevery = np.ones(x_values.shape, dtype=bool)
         markevery[i] = False
+        x_values = np.exp(x_values)
     if final:
         l = mlines.Line2D([x_values.min(), x_values.max()], [-linthresh, -linthresh], 
                             linestyle=':', color='gray', linewidth=1.0)
