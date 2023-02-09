@@ -111,26 +111,23 @@ def plot_examples(
     x_plt = np.linspace(x_plt_min, x_plt_max, 128)
     x_plt = np.reshape(x_plt, (-1, 1))
 
-    x_test = np.zeros((n_task_plot, benchmark.n_datapoints_per_task, benchmark.d_x))
-    y_test = np.zeros((n_task_plot, benchmark.n_datapoints_per_task, benchmark.d_y))
-    for k in range(n_task_plot):
-        task = benchmark.get_task_by_index(tasks[k])
-        x_test[k] = task.x
-        y_test[k] = task.y
+    x_test, y_test = collate_benchmark(benchmark)   
     y_min, y_max = 0, 0
     # plot predictions
     for i in range(len(context_set_sizes)):
         cs = context_set_sizes[i]
         np_model.adapt(x=x_test[:, :cs, :], y=y_test[:, :cs, :]) # adapt model on context set of size cs
-
         mu_y, var_y = np_model.predict(x=x_plt, n_samples=n_samples)
         std_y = np.sqrt(var_y)
-        assert mu_y.shape == (n_task_plot, n_samples, x_plt.shape[0], benchmark.d_y)
-        assert std_y.shape == (n_task_plot, n_samples, x_plt.shape[0], benchmark.d_y)
-
+        assert mu_y.shape == (benchmark.n_task, n_samples, x_plt.shape[0], benchmark.d_y)
+        assert std_y.shape == (benchmark.n_task, n_samples, x_plt.shape[0], benchmark.d_y)
         for l in range(n_task_plot):
             task = tasks[l]
-            ax = axs[l, i]
+            if len(axs.shape) == 2:
+                ax = axs[l, i]
+            else:
+                assert len(axs.shape) == 1
+                ax = axs[i]
             ax.set(
                 title=subplot_titles[(cs, task)], 
                 # aspect=0.3, 
@@ -144,10 +141,10 @@ def plot_examples(
             label_std = 'Standard deviation'
             for s in range(n_samples):
                 x_sample = x_plt.flatten()
-                y_sample = mu_y[l, s, :, :].flatten()
+                y_sample = mu_y[task, s, :, :].flatten()
                 ax.plot(x_sample, y_sample, label=label_prediction, color='blue', linewidth=1.0, alpha=sample_alpha)
                 if plot_output_std:
-                    std_y_sample = std_y[l, s, :, :].flatten()
+                    std_y_sample = std_y[task, s, :, :].flatten()
                     ax.fill_between(
                         x_sample, 
                         y_sample - std_y_sample, 
@@ -158,15 +155,15 @@ def plot_examples(
                 label_prediction, label_std = None, None
             ax.plot(x_plt, y_true, label='Ground truth function', color='xkcd:orange', linewidth=3.0)
             ax.plot(
-                x_test[l, cs:, :].flatten(), 
-                y_test[l, cs:, :].flatten(), 
+                x_test[task, cs:, :].flatten(), 
+                y_test[task, cs:, :].flatten(), 
                 'o', 
                 color='green',
                 markersize=3, 
                 label='Test set')
             ax.plot(
-                x_test[l, :cs, :].flatten(), 
-                y_test[l, :cs, :].flatten(), 
+                x_test[task, :cs, :].flatten(), 
+                y_test[task, :cs, :].flatten(), 
                 'o', 
                 color='red',
                 markersize=3, 
@@ -175,7 +172,12 @@ def plot_examples(
     fig.tight_layout() 
     legend_cols = 5 if plot_output_std else 4
     legend_width = 0.8
-    ax = axs[len(context_set_sizes) - 1, 0]
+    if len(axs.shape) == 2:
+        ax = axs[len(context_set_sizes) - 1, 0]
+    else:
+        assert len(axs.shape) == 1
+        ax = axs[len(context_set_sizes) - 1]
+    # ax = axs[len(context_set_sizes) - 1, 0]
     ax.legend( 
         bbox_to_anchor=((1 - legend_width) / 2, 0., legend_width, 0.),
         bbox_transform=fig.transFigure,
@@ -184,7 +186,7 @@ def plot_examples(
         ncol=legend_cols,
         borderaxespad=0.,
     )
-    ax.set_ylim((y_min - 0.5, y_max + 0.5))
+    ax.set_ylim((y_min - 2, y_max + 2))
     return fig, axs
 
 
