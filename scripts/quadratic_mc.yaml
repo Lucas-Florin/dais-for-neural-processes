@@ -125,8 +125,8 @@ name: quadratic_mc_repeat_test
 
 params:
   train_params:
-    save_model: True
-    load_model: False
+    save_model: False
+    load_model: True
   model_params:
     adam_lr: 0.0000657
     d_z: 31
@@ -140,6 +140,12 @@ params:
 list:
   model_params:
     seed: [1235, 1236, 1237, 1238, 1239]
-
+  train_params:
+    load_model_path: 
+      - "experiments/quadratic_mc_repeat_test/quadratic_mc_repeat_test__mod.s1235_eva.acl10000/log/rep_00"
+      - "experiments/quadratic_mc_repeat_test/quadratic_mc_repeat_test__mod.s1236_eva.acl10000/log/rep_00"
+      - "experiments/quadratic_mc_repeat_test/quadratic_mc_repeat_test__mod.s1237_eva.acl10000/log/rep_00"
+      - "experiments/quadratic_mc_repeat_test/quadratic_mc_repeat_test__mod.s1238_eva.acl10000/log/rep_00"
+      - "experiments/quadratic_mc_repeat_test/quadratic_mc_repeat_test__mod.s1239_eva.acl10000/log/rep_00"
 wandb:
   job_type: repeat_test

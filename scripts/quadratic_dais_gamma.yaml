@@ -2,7 +2,7 @@
 # Slurm bwuni cpu
 name: "SLURM"   # MUST BE "SLURM"
 partition: "single"  # "single" for cpu, "gpu_4" or gpu_8" for gpu
-job-name: "qd_dais_fsy" # this will be the experiment's name in slurm
+job-name: "qd_ds_ga" # this will be the experiment's name in slurm
 path_to_template: scripts/sbatch_template_bwuni_simple.sh
 num_parallel_jobs: 50 # max number of jobs executed in parallel
 ntasks: 1   #  leave that like it is
@@ -18,22 +18,23 @@ params:
     loss_type: DAIS
 
 wandb:
-  group: quadratic_dais_fixed_std_y
+  group: quadratic_dais_gamma
   project: NP_baseline
 
 ---
-name: quadratic_dais_fixed_std_y
+name: quadratic_dais_gamma
 
 params:
   train_params:
     save_model: True
     load_model: False
-    load_model_path: "./experiments/quadratic_dais_fixed_std_y/log/rep_00"
+    load_model_path: "./experiments/quadratic_dais_gamma_repeat/quadratic_dais_gamma_repeat__mod.al1.094e-05_mod.dz28_mod.nhu63_mod.dss0.03222_mod.dpg0.07241_mod.s1235/log/rep_00"
   model_params:
-    adam_lr: 0.00001604
-    d_z: 31
-    n_hidden_units: 61
-    dais_step_size: 0.004859
+    adam_lr: 0.00001094
+    d_z: 28
+    n_hidden_units: 63
+    dais_step_size: 0.03222
+    dais_partial_gamma: 0.07241
     seed: 1235
   benchmark_params:
     seed_task_test: 1236
@@ -43,18 +44,19 @@ wandb:
   job_type: run
 
 ---
-name: quadratic_dais_fixed_std_y_long
+name: quadratic_dais_gamma_long
 
 params:
   train_params:
     save_model: False
     load_model: True
-    load_model_path: "./experiments/quadratic_dais_fixed_std_y/log/rep_00"
+    load_model_path: "./experiments/quadratic_dais_gamma_repeat/quadratic_dais_gamma_repeat__mod.al1.094e-05_mod.dz28_mod.nhu63_mod.dss0.03222_mod.dpg0.07241_mod.s1235/log/rep_00"
   model_params:
-    adam_lr: 0.00001604
-    d_z: 31
-    n_hidden_units: 61
-    dais_step_size: 0.004859
+    adam_lr: 0.00001094
+    d_z: 28
+    n_hidden_units: 63
+    dais_step_size: 0.03222
+    dais_partial_gamma: 0.07241
     seed: 1235
   benchmark_params:
     seed_task_test: 1236
@@ -88,13 +90,13 @@ wandb:
   job_type: long
 
 ---
-name: quadratic_dais_fixed_std_y_sweep
+name: quadratic_dais_gamma_sweep
 repetitions: 40
 
 params:
-  copy_sweep_model_params: ["adam_lr", "d_z", "n_hidden_units", "dais_step_size"]
+  copy_sweep_model_params: ["adam_lr", "d_z", "n_hidden_units", "dais_step_size", "dais_partial_gamma"]
   eval_params:
-    use_ais: False
+    use_ais: True
     show_examples: False
 
 wandb:
@@ -103,9 +105,10 @@ wandb:
   hp_combinations_per_agent: 6
 
 wandb_sweep:
-  name: quadratic_dais_fixed_std_y_sweep
+  name: quadratic_dais_gamma_sweep
   metric: 
-    name: mc_objective
+    # name: mc_objective
+    name: ais_objective
     goal: maximize
   method: bayes
   parameters: 
@@ -123,9 +126,13 @@ wandb_sweep:
       distribution: log_uniform_values
       max: 2.4
       min: 0.0024
+    dais_partial_gamma:
+      distribution: uniform
+      min: 0.0
+      max: 1.0
 
 ---
-name: quadratic_dais_fixed_std_y_repeat
+name: quadratic_dais_gamma_repeat
 repetitions: 1
 
 params:
@@ -134,10 +141,11 @@ params:
 
 list:
   model_params:
-    adam_lr: [0.00002457, 0.0001131, 0.00001013, 0.0000543, 0.00001604]
-    d_z: [31, 31, 26, 26, 31]
-    n_hidden_units: [43, 51, 64, 39, 61]
-    dais_step_size: [0.03263, 0.002964, 0.05413, 0.002503, 0.004859]
+    adam_lr: [0.00001562, 0.00001925, 0.000012, 0.00001094, 0.00001726]
+    d_z: [27, 27, 29, 28, 13]
+    n_hidden_units: [63, 56, 64, 63, 63]
+    dais_step_size: [0.03985, 0.009778, 0.009194, 0.03222, 0.03646]
+    dais_partial_gamma: [0.5734, 0.6786, 0.1003, 0.07241, 0.3796]
 
 grid:
   model_params:
@@ -147,32 +155,34 @@ wandb:
   job_type: repeat
 
 ---
-name: quadratic_dais_fixed_std_y_repeat_test
+name: quadratic_dais_gamma_repeat_test
 
 params:
   train_params:
     save_model: False
     load_model: True
   model_params:
-    adam_lr: 0.00001604
-    d_z: 31
-    n_hidden_units: 61
-    dais_step_size: 0.004859
+    adam_lr: 0.00001094
+    d_z: 28
+    n_hidden_units: 63
+    dais_step_size: 0.03222
+    dais_partial_gamma: 0.07241
   benchmark_params:
     seed_task_test: 1236
     seed_x_test: 2236
     seed_noise_test: 3236
+
+
 
 list:
   model_params:
     seed: [1235, 1236, 1237, 1238, 1239]
   train_params:
     load_model_path: 
-      - "./experiments/quadratic_dais_fixed_std_y_repeat/quadratic_dais_fixed_std_y_repeat__mod.al2.419e-05_mod.dz24_mod.nhu58_mod.dss0.01002_mod.dnas5_mod.dpFalse_mod.dscurve_mod.s1235/log/rep_00"
-      - "./experiments/quadratic_dais_fixed_std_y_repeat/quadratic_dais_fixed_std_y_repeat__mod.al2.419e-05_mod.dz24_mod.nhu58_mod.dss0.01002_mod.dnas5_mod.dpFalse_mod.dscurve_mod.s1236/log/rep_00/"
-      - "./experiments/quadratic_dais_fixed_std_y_repeat/quadratic_dais_fixed_std_y_repeat__mod.al2.419e-05_mod.dz24_mod.nhu58_mod.dss0.01002_mod.dnas5_mod.dpFalse_mod.dscurve_mod.s1237/log/rep_00/"
-      - "./experiments/quadratic_dais_fixed_std_y_repeat/quadratic_dais_fixed_std_y_repeat__mod.al2.419e-05_mod.dz24_mod.nhu58_mod.dss0.01002_mod.dnas5_mod.dpFalse_mod.dscurve_mod.s1238/log/rep_00/"
-      - "./experiments/quadratic_dais_fixed_std_y_repeat/quadratic_dais_fixed_std_y_repeat__mod.al2.419e-05_mod.dz24_mod.nhu58_mod.dss0.01002_mod.dnas5_mod.dpFalse_mod.dscurve_mod.s1239/log/rep_00/"
-
+      - "./experiments/quadratic_dais_gamma_repeat/quadratic_dais_gamma_repeat__mod.al1.094e-05_mod.dz28_mod.nhu63_mod.dss0.03222_mod.dpg0.07241_mod.s1235/log/rep_00"
+      - "./experiments/quadratic_dais_gamma_repeat/quadratic_dais_gamma_repeat__mod.al1.094e-05_mod.dz28_mod.nhu63_mod.dss0.03222_mod.dpg0.07241_mod.s1236/log/rep_00"
+      - "./experiments/quadratic_dais_gamma_repeat/quadratic_dais_gamma_repeat__mod.al1.094e-05_mod.dz28_mod.nhu63_mod.dss0.03222_mod.dpg0.07241_mod.s1237/log/rep_00"
+      - "./experiments/quadratic_dais_gamma_repeat/quadratic_dais_gamma_repeat__mod.al1.094e-05_mod.dz28_mod.nhu63_mod.dss0.03222_mod.dpg0.07241_mod.s1238/log/rep_00"
+      - "./experiments/quadratic_dais_gamma_repeat/quadratic_dais_gamma_repeat__mod.al1.094e-05_mod.dz28_mod.nhu63_mod.dss0.03222_mod.dpg0.07241_mod.s1239/log/rep_00"
 wandb:
   job_type: repeat_test

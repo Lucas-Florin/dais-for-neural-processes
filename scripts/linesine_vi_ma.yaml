@@ -35,9 +35,9 @@ params:
     load_model: False
     load_model_path: "./experiments/linesine_vi_ma/log/rep_00"
   model_params:
-    adam_lr: 0.00177
-    d_z: 22
-    n_hidden_units: 49
+    adam_lr: 0.003643
+    d_z: 14
+    n_hidden_units: 61
     seed: 1235
   benchmark_params:
     seed_task_test: 1236
@@ -57,9 +57,9 @@ params:
     load_model: True
     load_model_path: "./experiments/linesine_vi_ma/log/rep_00"
   model_params:
-    adam_lr: 0.00177
-    d_z: 22
-    n_hidden_units: 49
+    adam_lr: 0.003643
+    d_z: 14
+    n_hidden_units: 61
     seed: 1235
   benchmark_params:
     seed_task_test: 1236
